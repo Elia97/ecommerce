@@ -1,0 +1,153 @@
+import { createHash } from 'node:crypto'
+import { describe, expect, it } from 'vitest'
+
+import { buildCspContent } from '@/lib/csp/directives'
+import { collectInlineScriptHashes, injectCspMeta } from '@/lib/csp/html'
+
+const sha = (s: string) => `sha256-${createHash('sha256').update(s).digest('base64')}`
+
+describe('collectInlineScriptHashes', () => {
+  it('hashes executable inline scripts, skips src/json/empty ones', () => {
+    const body = "\n  console.log('x')\n"
+    const html = `
+      <script>${body}</script>
+      <script src="/a.js"></script>
+      <script type="application/ld+json">{"@type":"x"}</script>
+      <script type="application/json">{"k":1}</script>
+      <script>   </script>
+    `
+    expect(collectInlineScriptHashes(html)).toEqual([sha(body)])
+  })
+
+  it('deduplicates identical hashes', () => {
+    expect(collectInlineScriptHashes('<script>a=1</script><script>a=1</script>')).toEqual([sha('a=1')])
+  })
+
+  it('hashes inline modules (Astro bundles them without a src)', () => {
+    expect(collectInlineScriptHashes('<script type="module">import "x"</script>')).toEqual([sha('import "x"')])
+  })
+
+  it('does not mistake data-src/data-type for an external script or a data block', () => {
+    // `data-src` e `data-type` NON sono `src` e `type`: lo script è eseguibile e va incluso nell'hash.
+    expect(collectInlineScriptHashes('<script data-src="x">a=1</script>')).toEqual([sha('a=1')])
+    expect(collectInlineScriptHashes('<script data-type="application/json">a=2</script>')).toEqual([sha('a=2')])
+  })
+
+  it('matches the digest the browser expects (known baseline)', () => {
+    // Controllo di sanità: SHA-256 base64 di 'a=1'. Se cambia, l'hashing ha smesso di corrispondere.
+    expect(sha('a=1')).toBe('sha256-wi/qXXQo5c9H72NUyXySI8ldbc3D4NIwD/eQVrH/PYU=')
+  })
+})
+
+describe('injectCspMeta', () => {
+  const csp = "default-src 'self'"
+
+  it('injects after <meta charset>, ahead of every script', () => {
+    const out = injectCspMeta('<head><meta charset="utf-8"><script>x</script></head>', csp)
+    expect(out).toContain('<meta charset="utf-8"><meta http-equiv="Content-Security-Policy"')
+    expect(out.indexOf('charset')).toBeLessThan(out.indexOf('Content-Security-Policy'))
+    expect(out.indexOf('Content-Security-Policy')).toBeLessThan(out.indexOf('<script>'))
+  })
+
+  it('falls back to right after <head> when charset is missing', () => {
+    expect(injectCspMeta('<head><script>x</script></head>', csp)).toContain(
+      '<head><meta http-equiv="Content-Security-Policy"',
+    )
+  })
+
+  it('is a no-op without a head', () => {
+    expect(injectCspMeta('<div>x</div>', csp)).toBe('<div>x</div>')
+  })
+})
+
+describe('buildCspContent', () => {
+  const csp = buildCspContent([sha('a=1')])
+  const directive = (name: string) => csp.split('; ').find((d) => d.startsWith(name)) ?? ''
+
+  it('script-src: hash plus self, never unsafe-inline', () => {
+    const scriptSrc = directive('script-src')
+    expect(scriptSrc).toContain(`'${sha('a=1')}'`)
+    expect(scriptSrc).toContain("'self'")
+    expect(scriptSrc).not.toContain("'unsafe-inline'")
+  })
+
+  it('style-src: permissive on purpose (unsafe-inline, no hashes)', () => {
+    const styleSrc = directive('style-src')
+    expect(styleSrc).toContain("'unsafe-inline'")
+    expect(styleSrc).not.toContain('sha256-')
+  })
+
+  it('no frame-ancestors in the meta (header-only directive)', () => {
+    expect(csp).not.toContain('frame-ancestors')
+  })
+
+  it('carries the hosts the CMP and analytics need, on every directive they touch', () => {
+    // Sbagliarne una e il banner dei cookie non compare mai in produzione, senza un errore
+    // da nessuna parte: un guasto GDPR che non sembra niente.
+    expect(directive('script-src')).toContain('https://cdn.iubenda.com')
+    expect(directive('script-src')).toContain('https://cs.iubenda.com')
+    expect(directive('script-src')).toContain('https://www.googletagmanager.com')
+    expect(directive('style-src')).toContain('https://cdn.iubenda.com')
+    expect(directive('img-src')).toContain('https://*.google-analytics.com')
+    expect(directive('connect-src')).toContain('https://*.iubenda.com')
+    expect(directive('frame-src')).toContain('https://www.googletagmanager.com')
+  })
+
+  it('keeps the directives carried over from the vercel.json policy', () => {
+    expect(csp).toContain("default-src 'self'")
+    expect(csp).toContain("object-src 'none'")
+    expect(csp).toContain("base-uri 'self'")
+    expect(csp).toContain("form-action 'self'")
+  })
+
+  it('carries no toolbar host outside a preview deploy', () => {
+    for (const env of [undefined, 'production', 'development']) {
+      const outside = buildCspContent([sha('a=1')], env)
+      expect(outside, `VERCEL_ENV=${env ?? 'unset'}`).not.toContain('vercel.live')
+      expect(outside, `VERCEL_ENV=${env ?? 'unset'}`).not.toContain('manifest-src')
+    }
+  })
+})
+
+describe('buildCspContent and the iubenda CMP', () => {
+  it('needs no iubenda host in frame-src, because the CMP links the policies in a new tab', () => {
+    const frameSrc =
+      buildCspContent([])
+        .split('; ')
+        .find((d) => d.startsWith('frame-src')) ?? ''
+
+    expect(frameSrc).not.toContain('iubenda')
+  })
+})
+
+describe('buildCspContent on a preview deploy', () => {
+  const csp = buildCspContent([sha('a=1')], 'preview')
+  const directive = (name: string) => csp.split('; ').find((d) => d.startsWith(name)) ?? ''
+
+  it('lets the Vercel toolbar through on every directive it touches', () => {
+    expect(directive('script-src')).toContain('https://vercel.live')
+    expect(directive('style-src')).toContain('https://vercel.live')
+    expect(directive('img-src')).toContain('https://vercel.live')
+    expect(directive('font-src')).toContain('https://assets.vercel.com')
+    expect(directive('connect-src')).toContain('wss://ws-us3.pusher.com')
+    expect(directive('frame-src')).toContain('https://vercel.live')
+  })
+
+  it('lets GTM Preview mode load its own interface', () => {
+    expect(directive('script-src')).toContain('https://tagmanager.google.com')
+    expect(directive('style-src')).toContain('https://fonts.googleapis.com')
+    expect(directive('img-src')).toContain('https://www.gstatic.com')
+    expect(directive('font-src')).toContain('https://fonts.gstatic.com')
+  })
+
+  it('declares manifest-src, which the deployment protection routes through vercel.com', () => {
+    expect(directive('manifest-src')).toContain('https://vercel.com')
+    expect(directive('manifest-src')).toContain("'self'")
+  })
+
+  it('keeps the production sources and the inline hashes', () => {
+    expect(directive('script-src')).toContain(`'${sha('a=1')}'`)
+    expect(directive('script-src')).toContain('https://cdn.iubenda.com')
+    expect(directive('default-src')).toBe("default-src 'self'")
+  })
+})

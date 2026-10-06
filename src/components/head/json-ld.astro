@@ -1,0 +1,16 @@
+---
+// La parentesi angolare aperta è codificata così il contenuto non può chiudere in anticipo
+// l'elemento script: mai `set:html` sull'output grezzo di JSON.stringify.
+interface Props {
+  items?: Record<string, unknown>[] | undefined
+}
+
+const { items } = Astro.props
+const jsonLdItems = (items ?? []).map((item) => JSON.stringify(item).replace(/</g, '\\u003c'))
+---
+
+{
+  jsonLdItems.map((item) => (
+    <script is:inline type="application/ld+json" set:html={item} />
+  ))
+}

@@ -1,0 +1,26 @@
+name: Lighthouse CI
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 4 * * 1' # Lunedì 04:00 UTC, solo sul branch di default
+  pull_request:
+    types: [labeled, synchronize]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lighthouse:
+    name: Lighthouse CI (advisory)
+    if: >-
+      github.event_name != 'pull_request' ||
+      contains(github.event.pull_request.labels.*.name, 'lighthouse')
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: Elia97/officina/actions/lighthouse@v0.11.0

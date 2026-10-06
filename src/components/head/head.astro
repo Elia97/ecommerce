@@ -1,0 +1,64 @@
+---
+import HeadAlternates from './alternates.astro'
+import HeadIcons from './icons.astro'
+import HeadJsonLd from './json-ld.astro'
+import HeadOg from './og.astro'
+import { resolveHeadSeoMeta } from './seo'
+import HeadTwitter from './twitter.astro'
+
+interface Props {
+  title: string
+  absoluteTitle?: boolean | undefined
+  description?: string | undefined
+  canonicalPath?: string | undefined
+  ogImage?: string | undefined
+  jsonLd?: Record<string, unknown>[] | undefined
+  noindex?: boolean | undefined
+  locales?: readonly string[] | undefined
+}
+
+const {
+  title,
+  absoluteTitle = false,
+  description,
+  canonicalPath,
+  ogImage,
+  jsonLd,
+  noindex = false,
+  locales,
+} = Astro.props
+
+const { documentTitle, canonical, socialImage, currentTag, localeAlternates, defaultHref } = resolveHeadSeoMeta({
+  title,
+  absoluteTitle,
+  currentLocale: Astro.currentLocale,
+  canonicalPath: canonicalPath ?? Astro.url.pathname,
+  ogImage,
+  locales,
+})
+---
+
+{/* charset e viewport stanno nel layout: devono precedere lo script inline del tema */}
+<meta name="generator" content={Astro.generator} />
+<HeadIcons />
+
+<title>{documentTitle}</title>
+{description ? <meta name="description" content={description} /> : null}
+{/* Astro scarta in build le intestazioni di risposta di una pagina prerenderizzata
+    (src/middleware.ts), quindi questo è l'unico noindex per percorso che la raggiunge. */}
+{noindex ? <meta name="robots" content="noindex, nofollow" /> : null}
+<link rel="canonical" href={canonical} />
+<HeadAlternates localeAlternates={localeAlternates} defaultHref={defaultHref} />
+
+<HeadOg
+  title={title}
+  description={description}
+  canonical={canonical}
+  currentTag={currentTag}
+  localeAlternates={localeAlternates}
+  image={socialImage}
+/>
+
+<HeadTwitter title={title} description={description} image={socialImage} />
+
+<HeadJsonLd items={jsonLd} />

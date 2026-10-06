@@ -1,0 +1,19 @@
+---
+import LegalDoc from '@/components/legal/legal-doc.astro'
+
+import MainLayout from '@/layouts/main.astro'
+
+import { getLegalDoc } from '@/lib/legal/documents'
+
+import { useTranslations } from '@/i18n/translate'
+
+const t = useTranslations(Astro.currentLocale)
+const html = await getLegalDoc('cookie-policy')
+
+const title = t('legal.cookies')
+const description = t('legal.cookiesDescription')
+---
+
+<MainLayout {title} {description}>
+  <LegalDoc kind="cookie-policy" {html} />
+</MainLayout>

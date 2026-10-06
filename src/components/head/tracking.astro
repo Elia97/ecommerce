@@ -1,0 +1,77 @@
+---
+// Le origini che questi script richiedono arrivano da src/lib/csp/directives.ts: un
+// fornitore nuovo va lì e in src/lib/csp/csp.test.ts, mai in vercel.json.
+import { getTrackingConfig } from '@/lib/analytics/tracking'
+import { DEFAULT_LOCALE, SITE } from '@/lib/site'
+
+import { localizedHref } from '@/i18n/href'
+
+const config = getTrackingConfig()
+const lang = Astro.currentLocale ?? DEFAULT_LOCALE
+
+// I link legali del banner puntano qui invece che ai documenti ospitati: vedi
+// docs/guides/deploy-ops.md § Tracciamento e Consent Mode v2.
+const legalPath = (key: string): string => {
+  const entry = SITE.legal.find((link) => link.key === key)
+  return entry === undefined ? '' : localizedHref(Astro.currentLocale, entry.href)
+}
+---
+
+{
+  config && (
+    <>
+      {/* [HARD] dns-prefetch, mai preconnect, per googletagmanager: preconnect apre TCP e
+          TLS, mandando SNI e IP a Google prima del consenso (docs/guides/rendering-performance.md). */}
+      <link rel="preconnect" href="https://cdn.iubenda.com" />
+      <link rel="dns-prefetch" href="https://cdn.iubenda.com" />
+      <link rel="dns-prefetch" href="https://cs.iubenda.com" />
+      <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+
+      {/* [HARD] I default del Consent Mode devono essere la PRIMA cosa che tocca dataLayer:
+          un tag che si accoda prima di loro gira senza restrizioni. */}
+      <script is:inline>
+        window.dataLayer = window.dataLayer || []
+        function gtag() {
+          window.dataLayer.push(arguments)
+        }
+        window.gtag = gtag
+        gtag('consent', 'default', {
+          ad_storage: 'denied',
+          ad_user_data: 'denied',
+          ad_personalization: 'denied',
+          analytics_storage: 'denied',
+          wait_for_update: 500,
+        })
+        gtag('set', 'ads_data_redaction', true)
+        gtag('set', 'url_passthrough', true)
+      </script>
+
+      <script
+        is:inline
+        define:vars={{
+          consentConfig: {
+            siteId: config.iubendaSiteId,
+            cookiePolicyId: config.cookiePolicyId,
+            lang,
+            cookiePolicyPath: legalPath('legal.cookies'),
+            privacyPolicyPath: legalPath('legal.privacy'),
+          },
+          analyticsConfig: { gtmId: config.gtmId },
+        }}
+      >
+        window.__consentConfig = consentConfig
+        window.__analyticsConfig = analyticsConfig
+      </script>
+
+      <script>
+        import { bootstrapAnalytics } from '@/lib/analytics/bootstrap'
+        import { bootstrapIubenda } from '@/lib/consent/iubenda'
+
+        // Prima l'analytics: una preferenza già salvata svuota la coda appena iubenda si
+        // carica, e una callback registrata dopo non gira più.
+        bootstrapAnalytics()
+        bootstrapIubenda()
+      </script>
+    </>
+  )
+}

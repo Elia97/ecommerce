@@ -1,0 +1,19 @@
+---
+import LegalDoc from '@/components/legal/legal-doc.astro'
+
+import MainLayout from '@/layouts/main.astro'
+
+import { getLegalDoc } from '@/lib/legal/documents'
+
+import { useTranslations } from '@/i18n/translate'
+
+const t = useTranslations(Astro.currentLocale)
+const html = await getLegalDoc('privacy')
+
+const title = t('legal.privacy')
+const description = t('legal.privacyDescription')
+---
+
+<MainLayout {title} {description}>
+  <LegalDoc kind="privacy" {html} />
+</MainLayout>

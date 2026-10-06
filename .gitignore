@@ -1,0 +1,58 @@
+# build output
+dist/
+# generated types
+.astro/
+
+# dependencies
+node_modules/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+
+# environment variables
+.env
+.env.production
+
+# macOS-specific files
+.DS_Store
+
+# jetbrains setting folder
+.idea/
+.vercel
+
+# design sources
+*.psd
+
+# fallow (dead-code analyzer) local state
+.fallow/
+
+# claude code local state
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+.claude/plans/
+.env*
+# ...except the tracked list of required keys (no real values in it)
+!.env.example
+
+# vitest coverage (input for `fallow audit`, never committed)
+coverage/
+
+# PDF generati dai .md accanto, mai una fonte: il materiale del cliente sta fuori dal repo.
+docs/*.pdf
+
+# file temporanei di Office
+~$*
+
+# Lighthouse CI local reports
+.lighthouseci/
+dist/lh-prod/
+
+# Playwright (traccia, rapporto e artefatti degli scenari)
+test-results/
+playwright-report/
+blob-report/
+.playwright/

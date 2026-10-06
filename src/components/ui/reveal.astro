@@ -1,0 +1,20 @@
+---
+interface Props {
+  y?: number
+  delay?: number
+  class?: string
+}
+
+const { y = 24, delay = 0, class: className } = Astro.props
+const style = `--reveal-y: ${String(y)}px; --reveal-delay: ${String(delay)}s;`
+---
+
+<div data-reveal class={className} style={style}>
+  <slot />
+</div>
+
+<script>
+  import { bindReveals } from '@/lib/motion/reveal'
+
+  bindReveals()
+</script>

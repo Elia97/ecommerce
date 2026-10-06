@@ -1,0 +1,9 @@
+section: hero
+eyebrow: Eyebrow
+title: Titolo principale della homepage
+subtitle: >-
+  Sottotitolo neutro: una frase che riassume la proposta di valore del progetto.
+  Sostituiscilo con il copy reale.
+buttons:
+  - label: Azione primaria
+    url: /contatti

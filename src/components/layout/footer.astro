@@ -1,0 +1,77 @@
+---
+import CompanyAddress from '@/components/layout/company-address.astro'
+import NavLink from '@/components/layout/nav-link.astro'
+import Container from '@/components/ui/container.astro'
+
+import { getTrackingConfig } from '@/lib/analytics/tracking'
+import { COMPANY } from '@/lib/company'
+import { SITE } from '@/lib/site'
+
+import { useTranslations } from '@/i18n/translate'
+
+const t = useTranslations(Astro.currentLocale)
+const year = new Date().getFullYear()
+
+// [HARD] Il consenso resta revocabile da questo controllo: il badge fluttuante della CMP
+// è disattivato (src/lib/consent/iubenda.ts).
+const hasCmp = getTrackingConfig() !== null
+---
+
+<footer transition:name="site-footer" class="border-border/60 border-t bg-background">
+  <Container class="py-12">
+    <div class="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
+      <div class="max-w-sm">
+        <p class="font-semibold text-foreground text-lg tracking-tight">{SITE.name}</p>
+        <p class="mt-2 text-muted-foreground text-sm">{SITE.description}</p>
+      </div>
+
+      <nav aria-label={t('a11y.legalNav')} class="flex flex-col gap-2">
+        <p class="font-medium text-foreground text-sm">{t('footer.legalHeading')}</p>
+        {
+          SITE.legal.map((link) => (
+            <NavLink
+              href={link.href}
+              class="text-muted-foreground text-sm underline-offset-4 transition-colors hover:text-foreground aria-[current]:text-foreground aria-[current]:underline"
+            >
+              {t(link.key)}
+            </NavLink>
+          ))
+        }
+        {
+          hasCmp && (
+            /* iubenda aggancia il click dal nome della classe. */
+            <button
+              type="button"
+              aria-haspopup="dialog"
+              class="iubenda-cs-preferences-link cursor-pointer text-left text-muted-foreground text-sm transition-colors hover:text-foreground"
+            >
+              {t('legal.cookiePreferences')}
+            </button>
+          )
+        }
+      </nav>
+    </div>
+
+    <div
+      class="mt-10 flex flex-col gap-4 border-border/60 border-t pt-6 text-muted-foreground text-sm sm:flex-row sm:items-center sm:justify-between"
+    >
+      <div class="flex flex-col gap-1">
+        <p>&copy; {year} {SITE.name}. {t('footer.allRightsReserved')}</p>
+        <p>{COMPANY.legalName} · <CompanyAddress /> · {t('footer.vatNumber')} {COMPANY.vatNumber}</p>
+      </div>
+      {
+        SITE.social.length > 0 && (
+          <ul class="flex items-center gap-4">
+            {SITE.social.map((profile) => (
+              <li>
+                <a href={profile.href} rel="noreferrer" class="transition-colors hover:text-foreground">
+                  {profile.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    </div>
+  </Container>
+</footer>

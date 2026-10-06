@@ -1,0 +1,85 @@
+---
+import { Menu } from '@lucide/astro'
+
+import LanguageSwitcher from '@/components/layout/language-switcher.astro'
+import MobileNav from '@/components/layout/mobile-nav.astro'
+import NavLink from '@/components/layout/nav-link.astro'
+import Button from '@/components/ui/button.astro'
+import Container from '@/components/ui/container.astro'
+import ThemeToggle from '@/components/ui/theme-toggle.astro'
+
+import { SITE } from '@/lib/site'
+import { cn } from '@/lib/utils'
+
+import { localizedHref } from '@/i18n/href'
+import { useTranslations } from '@/i18n/translate'
+
+interface Props {
+  heroOverlay?: boolean
+  overlayChrome?: 'auto' | 'light'
+  locales?: readonly string[] | undefined
+}
+
+const { heroOverlay = false, overlayChrome = 'auto', locales } = Astro.props
+const lightChrome = heroOverlay && overlayChrome === 'light'
+
+const t = useTranslations(Astro.currentLocale)
+const href = (path: string) => localizedHref(Astro.currentLocale, path)
+
+const headerClass = heroOverlay
+  ? 'absolute inset-x-0 top-0 z-header'
+  : 'sticky top-0 z-header border-border/60 border-b bg-background/80 backdrop-blur-sm supports-backdrop-filter:bg-background/60'
+
+const wordmarkClass = lightChrome ? 'text-white' : 'text-foreground'
+
+const navLinkClass = lightChrome
+  ? 'text-white/85 hover:text-white aria-[current]:text-white'
+  : heroOverlay
+    ? 'text-foreground/80 hover:text-foreground aria-[current]:text-foreground'
+    : 'text-muted-foreground hover:text-foreground aria-[current]:text-foreground'
+
+const controlClass = lightChrome ? 'text-white hover:text-white/80' : 'text-muted-foreground hover:text-foreground'
+---
+
+<header transition:name="site-header" class={cn('w-full', headerClass)}>
+  <Container class="flex h-16 items-center justify-between">
+    <a href={href('/')} class={cn('font-semibold text-lg tracking-tight', wordmarkClass)}>{SITE.name}</a>
+
+    <nav aria-label={t('a11y.primaryNav')} class="hidden items-center gap-6 md:flex">
+      {
+        SITE.nav.map((link) => (
+          <NavLink
+            href={link.href}
+            class={cn(
+              'font-medium text-sm underline-offset-4 transition-colors aria-[current]:underline',
+              navLinkClass,
+            )}
+          >
+            {t(link.key)}
+          </NavLink>
+        ))
+      }
+    </nav>
+
+    <div class="flex items-center gap-2">
+      <LanguageSwitcher {locales} class="hidden md:flex" itemClass={navLinkClass} />
+      <ThemeToggle class={cn('hidden md:inline-flex', controlClass)} />
+      <Button as="a" href={href(SITE.cta.href)} size="sm" class="hidden md:inline-flex">{t(SITE.cta.key)}</Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-md"
+        data-mobile-nav-toggle
+        aria-haspopup="dialog"
+        aria-expanded="false"
+        aria-controls="mobile-nav"
+        aria-label={t('a11y.openMenu')}
+        class={cn('md:hidden', controlClass)}
+      >
+        <Menu aria-hidden="true" class="size-5" />
+      </Button>
+    </div>
+  </Container>
+</header>
+
+<MobileNav {locales} />

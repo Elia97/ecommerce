@@ -1,0 +1,49 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { ROBOTS_DISALLOWED_PATHS } from '@/lib/seo/crawl-policy'
+
+// ROBOTS_DISALLOWED_PATHS arriva vuoto: è il mock a dare un input al ramo Disallow.
+vi.mock('@/lib/seo/crawl-policy', () => ({ ROBOTS_DISALLOWED_PATHS: [] }))
+
+async function get(site?: URL): Promise<{ body: string; type: string | null }> {
+  const { GET } = await import('@/pages/robots.txt')
+  const response = (GET as unknown as (c: { site?: URL | undefined }) => Response)({ site })
+  return { body: await response.text(), type: response.headers.get('Content-Type') }
+}
+
+beforeEach(() => {
+  vi.resetModules()
+  ;(ROBOTS_DISALLOWED_PATHS as unknown as string[]).length = 0
+})
+
+describe('robots.txt', () => {
+  it('serves plain text', async () => {
+    const { type } = await get(new URL('https://example.test'))
+
+    expect(type).toBe('text/plain; charset=utf-8')
+  })
+
+  it('allows everything and points at the sitemap on the site URL', async () => {
+    const { body } = await get(new URL('https://example.test'))
+
+    expect(body).toContain('User-agent: *')
+    expect(body).toContain('Allow: /')
+    expect(body).toContain('Sitemap: https://example.test/sitemap-index.xml')
+  })
+
+  // Astro lascia `site` undefined in dev.
+  it('falls back to localhost when `site` is unset', async () => {
+    const { body } = await get(undefined)
+
+    expect(body).toContain('Sitemap: http://localhost:4321/sitemap-index.xml')
+  })
+
+  it('emits one Disallow per crawl-policy entry', async () => {
+    ;(ROBOTS_DISALLOWED_PATHS as unknown as string[]).push('/area-riservata', '/tmp')
+
+    const { body } = await get(new URL('https://example.test'))
+
+    expect(body).toContain('Disallow: /area-riservata')
+    expect(body).toContain('Disallow: /tmp')
+  })
+})

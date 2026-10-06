@@ -1,0 +1,62 @@
+name: Deploy
+
+# [HARD] `workflow_dispatch` esiste perché la via d'emergenza sia quella coi gate: ricostruire
+# la produzione senza modifiche al codice passa da qui, mai da un `vercel --prod` a mano.
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: 'Release tag to deploy'
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Release tag to deploy (blank = the most recent tag)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  check-vercel-secrets:
+    runs-on: ubuntu-latest
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - id: check
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          if [ -n "$VERCEL_TOKEN" ] && [ -n "$VERCEL_ORG_ID" ] && [ -n "$VERCEL_PROJECT_ID" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Vercel secrets not set yet — skipping production deploy. See README.md for the setup checklist."
+          fi
+
+  deploy:
+    name: Deploy to Vercel production
+    needs: check-vercel-secrets
+    if: ${{ needs.check-vercel-secrets.outputs.configured == 'true' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      # [HARD] Nell'`env` del job, i segreti sarebbero visibili anche a `pnpm install` e agli script
+      # di installazione di ogni dipendenza, che girano codice di terzi.
+      - uses: Elia97/officina/actions/deploy@v0.11.0
+        id: deploy
+        with:
+          ref: ${{ inputs.ref }}
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}

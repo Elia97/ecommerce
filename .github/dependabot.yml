@@ -1,0 +1,74 @@
+version: 2
+
+# [HARD] `doctor` pretende che il riferimento delle action sia la versione del pacchetto installato.
+multi-ecosystem-groups:
+  officina:
+    schedule:
+      interval: 'weekly'
+    labels:
+      - 'dependencies'
+    # Solo qui: su una voce con `multi-ecosystem-group` Dependabot rifiuta l'intero file.
+    commit-message:
+      prefix: 'chore(deps)'
+
+updates:
+  # `patterns` limita l'aggiornamento ai soli pacchetti elencati: senza una seconda voce,
+  # il resto dell'ecosistema smette di aggiornarsi senza nessun errore (dependabot-core#12437).
+  - package-ecosystem: 'npm'
+    directory: '/'
+    patterns:
+      - '@elia97/officina'
+    multi-ecosystem-group: 'officina'
+    schedule:
+      interval: 'weekly'
+
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    labels:
+      - 'dependencies'
+    # [HARD] `chore` è nascosto in `changelog-sections` e il job di deploy gira solo su un tag:
+    # un bump mergiato qui raggiunge la produzione col primo commit rilasciabile, mai da solo.
+    commit-message:
+      prefix: 'chore(deps)'
+      prefix-development: 'chore(deps-dev)'
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
+    ignore:
+      - dependency-name: '@elia97/officina'
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
+      # `astro check` usa l'API programmatica di TypeScript, che il compilatore nativo 7.x
+      # non porta ancora. Stato a monte: https://github.com/withastro/roadmap/discussions/1321
+      - dependency-name: 'typescript'
+        update-types: ['version-update:semver-major']
+    groups:
+      # Due PR mergiate a secondi di distanza fondono i pnpm-lock.yaml con una chiave duplicata.
+      npm:
+        patterns:
+          - '*'
+
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    patterns:
+      - 'Elia97/officina'
+    multi-ecosystem-group: 'officina'
+    schedule:
+      interval: 'weekly'
+
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    labels:
+      - 'github-actions'
+    commit-message:
+      prefix: 'chore(deps)'
+    ignore:
+      - dependency-name: 'Elia97/officina'
+    groups:
+      github-actions:
+        patterns:
+          - '*'

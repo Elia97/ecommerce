@@ -1,0 +1,71 @@
+import { renderToFragment } from '@test/container'
+import { describe, expect, it } from 'vitest'
+
+import ContactForm from '@/components/contact/contact-form.astro'
+import ContactFormFields from '@/components/contact/contact-form-fields.astro'
+
+import { contactSchema } from '@/lib/contact'
+import { HONEYPOT_FIELD } from '@/lib/forms/honeypot'
+
+import { it as dictionary } from '@/i18n/strings/it'
+
+import { fieldErrorId } from './field-errors'
+
+// Uno slot mancante o rinominato rispetto allo schema compila benissimo e degrada in silenzio
+// l'errore di campo a un messaggio a livello di form.
+const WITHOUT_SLOT: readonly string[] = [HONEYPOT_FIELD]
+
+const expectedFields = Object.keys(contactSchema.shape).filter((field) => !WITHOUT_SLOT.includes(field))
+
+describe('contact form markup contract', () => {
+  it('covers every schema field with a slot, and adds none of its own', async () => {
+    const document = await renderToFragment(ContactFormFields)
+    const slots = [...document.querySelectorAll('[data-field-error]')].map((el) => el.getAttribute('data-field-error'))
+    expect(slots.sort()).toEqual([...expectedFields].sort())
+  })
+
+  it('points each control at its own slot through aria-describedby', async () => {
+    const document = await renderToFragment(ContactFormFields)
+    for (const field of expectedFields) {
+      const control = document.querySelector(`[name="${field}"]`)
+      expect(control, `no control named ${field}`).not.toBeNull()
+      expect(control?.getAttribute('aria-describedby')).toBe(fieldErrorId(field))
+    }
+  })
+
+  it('gives every slot the id its control references', async () => {
+    const document = await renderToFragment(ContactFormFields)
+    for (const field of expectedFields) {
+      expect(document.querySelector(`#${fieldErrorId(field)}`)?.getAttribute('data-field-error')).toBe(field)
+    }
+  })
+
+  it('renders the honeypot without a slot to give it away', async () => {
+    const document = await renderToFragment(ContactFormFields)
+    expect(document.querySelector(`[name="${HONEYPOT_FIELD}"]`)).not.toBeNull()
+    expect(document.querySelector(`[data-field-error="${HONEYPOT_FIELD}"]`)).toBeNull()
+  })
+})
+
+const contactForm = async () => (await renderToFragment(ContactForm)).querySelector('form[data-contact-form]')
+
+describe('il contratto di invio di contact-form.astro', () => {
+  it('invia in POST e senza action, così i campi non finiscono mai nella query string', async () => {
+    const form = await contactForm()
+
+    expect(form?.getAttribute('method')).toBe('post')
+    expect(form?.hasAttribute('action')).toBe(false)
+  })
+
+  it('consegna il pulsante di invio disabilitato, finché non lo abilita il binder', async () => {
+    const form = await contactForm()
+
+    expect(form?.querySelector('button[type="submit"]')?.hasAttribute('disabled')).toBe(true)
+  })
+
+  it('senza JavaScript rimanda ai recapiti, con il testo del dizionario', async () => {
+    const form = await contactForm()
+
+    expect(form?.querySelector('noscript')?.textContent).toContain(dictionary['contact.noscript'])
+  })
+})

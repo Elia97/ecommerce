@@ -1,0 +1,180 @@
+// @vitest-environment happy-dom
+import { describe, expect, it, vi } from 'vitest'
+
+import type { ConsentGate, ConsentPreference } from '@/lib/consent/gate'
+import { type BootstrapDeps, bootstrapIubenda, buildCsConfiguration } from '@/lib/consent/iubenda'
+
+const ORIGIN = 'https://acme.test'
+
+const CONFIG = {
+  siteId: '1234567',
+  cookiePolicyId: '7654321',
+  lang: 'it',
+  cookiePolicyPath: '/cookie-policy',
+  privacyPolicyPath: '/privacy',
+}
+
+const csOptions = (onPreference: (pref: ConsentPreference) => void = vi.fn()) => ({
+  ...CONFIG,
+  cookiePolicyUrl: `${ORIGIN}/cookie-policy`,
+  privacyPolicyUrl: `${ORIGIN}/privacy`,
+  onPreference,
+})
+
+function makeGate(): ConsentGate & { applyPreference: ReturnType<typeof vi.fn> } {
+  return {
+    onConsent: vi.fn(),
+    applyPreference: vi.fn(),
+    hasConsent: vi.fn(() => false),
+  } as unknown as ConsentGate & { applyPreference: ReturnType<typeof vi.fn> }
+}
+
+function makeWin(config?: typeof CONFIG) {
+  const win = { __consentConfig: config, location: { origin: ORIGIN } } as unknown as Window & typeof globalThis
+  return win
+}
+
+function boot(overrides: Partial<BootstrapDeps> = {}) {
+  const gate = overrides.gate ?? makeGate()
+  const loadScript = vi.fn()
+  const win = overrides.win ?? makeWin(CONFIG)
+  bootstrapIubenda({ win, doc: document, gate, loadScript, ...overrides })
+  return { win, gate, loadScript }
+}
+
+describe('buildCsConfiguration', () => {
+  // Numeri, non stringhe: il widget di iubenda rifiuta in silenzio la forma stringa.
+  it('converts the ids to numbers', () => {
+    const cfg = buildCsConfiguration(csOptions())
+    expect(cfg.siteId).toBe(1234567)
+    expect(cfg.cookiePolicyId).toBe(7654321)
+  })
+
+  // [HARD] La navigazione continuata non è consenso secondo le linee guida 2021 del Garante.
+  it('never accepts consent on continued browsing', () => {
+    expect(buildCsConfiguration(csOptions()).consentOnContinuedBrowsing).toBe(false)
+  })
+
+  it('asks for per-purpose consent, which is what the gate maps', () => {
+    expect(buildCsConfiguration(csOptions()).perPurposeConsent).toBe(true)
+  })
+
+  it('sends both policy links to the pages of the site, opened in a new tab', () => {
+    const cfg = buildCsConfiguration(csOptions())
+
+    expect(cfg.cookiePolicyUrl).toBe(`${ORIGIN}/cookie-policy`)
+    expect(cfg.privacyPolicyUrl).toBe(`${ORIGIN}/privacy`)
+    expect(cfg.cookiePolicyInOtherWindow).toBe(true)
+    expect(cfg.privacyPolicyInOtherWindow).toBe(true)
+  })
+
+  it('omits a policy URL the site does not publish', () => {
+    const cfg = buildCsConfiguration({ ...csOptions(), cookiePolicyUrl: '', privacyPolicyUrl: '' })
+
+    expect(cfg).not.toHaveProperty('cookiePolicyUrl')
+    expect(cfg).not.toHaveProperty('privacyPolicyUrl')
+  })
+
+  it('routes both the fresh and the stored preference to the same handler', () => {
+    const onPreference = vi.fn()
+    const { callback } = buildCsConfiguration(csOptions(onPreference))
+    const pref: ConsentPreference = { consent: true }
+
+    callback.onPreferenceExpressed(pref)
+    callback.onConsentRead(pref)
+
+    expect(onPreference).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('bootstrapIubenda', () => {
+  it('loads the CMP and publishes the config when a site id is set', () => {
+    const { win, loadScript } = boot()
+
+    expect(loadScript).toHaveBeenCalledWith('https://cdn.iubenda.com/cs/iubenda_cs.js')
+    expect(win._iub?.csConfiguration).toBeDefined()
+  })
+
+  it('does nothing without a config', () => {
+    const { loadScript, win } = boot({ win: makeWin() })
+
+    expect(loadScript).not.toHaveBeenCalled()
+    expect(win._iub).toBeUndefined()
+  })
+
+  it('does nothing when the site id is empty', () => {
+    const { loadScript } = boot({ win: makeWin({ ...CONFIG, siteId: '' }) })
+
+    expect(loadScript).not.toHaveBeenCalled()
+  })
+
+  it('builds the policy URLs on the origin the page is served from', () => {
+    const { win } = boot()
+    const cfg = win._iub?.csConfiguration as ReturnType<typeof buildCsConfiguration>
+
+    expect(cfg.cookiePolicyUrl).toBe(`${ORIGIN}/cookie-policy`)
+    expect(cfg.privacyPolicyUrl).toBe(`${ORIGIN}/privacy`)
+  })
+
+  it('leaves the policy URLs out when the site publishes no legal page', () => {
+    const win = makeWin({ ...CONFIG, cookiePolicyPath: '', privacyPolicyPath: '' })
+    const cfg = boot({ win }).win._iub?.csConfiguration as ReturnType<typeof buildCsConfiguration>
+
+    expect(cfg).not.toHaveProperty('cookiePolicyUrl')
+    expect(cfg).not.toHaveProperty('privacyPolicyUrl')
+  })
+})
+
+describe('bootstrapIubenda — wiring', () => {
+  it('exposes the gate on the window for scripts outside the module graph', () => {
+    const { win, gate } = boot()
+
+    expect(win.__consent?.onConsent).toBe(gate.onConsent)
+  })
+
+  it('is idempotent', () => {
+    const win = makeWin(CONFIG)
+    const loadScript = vi.fn()
+
+    bootstrapIubenda({ win, doc: document, gate: makeGate(), loadScript })
+    bootstrapIubenda({ win, doc: document, gate: makeGate(), loadScript })
+
+    expect(loadScript).toHaveBeenCalledTimes(1)
+  })
+
+  it('hands the CMP preference to the gate', () => {
+    const { win, gate } = boot()
+    const cfg = win._iub?.csConfiguration as ReturnType<typeof buildCsConfiguration>
+    const pref: ConsentPreference = { purposes: { '4': true } }
+
+    cfg.callback.onPreferenceExpressed(pref)
+
+    expect(gate.applyPreference).toHaveBeenCalledWith(pref)
+  })
+
+  // Mai collegato davvero: appendere farebbe scaricare la CDN a happy-dom da uno unit test.
+  it('appends an async script tag when no loader is injected', () => {
+    const appended: HTMLScriptElement[] = []
+    const doc = {
+      createElement: (tag: string) => document.createElement(tag),
+      head: {
+        appendChild: (element: HTMLScriptElement) => {
+          appended.push(element)
+        },
+      },
+    } as unknown as Document
+
+    bootstrapIubenda({ win: makeWin(CONFIG), doc, gate: makeGate() })
+
+    expect(appended[0]?.src).toBe('https://cdn.iubenda.com/cs/iubenda_cs.js')
+    expect(appended[0]?.async).toBe(true)
+  })
+})
+
+describe('default dependencies', () => {
+  it('falls back to the real globals when called without deps', () => {
+    expect(() => {
+      bootstrapIubenda()
+    }).not.toThrow()
+  })
+})

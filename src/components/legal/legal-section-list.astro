@@ -1,0 +1,14 @@
+---
+import LegalSection from '@/components/legal/legal-section.astro'
+
+interface Props {
+  sections: { heading: string; body: string }[]
+}
+
+const { sections } = Astro.props
+---
+
+<div class="mt-10 space-y-10 text-foreground">
+  <slot />
+  {sections.map(({ heading, body }) => <LegalSection heading={heading}>{body}</LegalSection>)}
+</div>

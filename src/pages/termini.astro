@@ -1,0 +1,46 @@
+---
+import LegalPage from '@/components/legal/legal-page.astro'
+import LegalSectionList from '@/components/legal/legal-section-list.astro'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+
+import MainLayout from '@/layouts/main.astro'
+
+import { useTranslations } from '@/i18n/translate'
+
+const t = useTranslations(Astro.currentLocale)
+const title = t('legal.terms')
+const description = t('legal.termsDescription')
+
+const sections = [
+  {
+    heading: 'Oggetto',
+    body: "Questi termini regolano l'accesso e l'utilizzo del sito e dei suoi contenuti. Navigando il sito l'utente li accetta integralmente.",
+  },
+  {
+    heading: 'Proprietà intellettuale',
+    body: 'Contenuti, testi, immagini, loghi e marchi presenti sul sito appartengono ai rispettivi titolari e non possono essere riprodotti o riutilizzati senza autorizzazione.',
+  },
+  {
+    heading: 'Limitazione di responsabilità',
+    body: "Le informazioni pubblicate hanno finalità informative e non costituiscono offerta contrattuale. Il titolare non risponde di eventuali inesattezze o di danni derivanti dall'uso del sito o da contenuti di siti terzi raggiungibili tramite link.",
+  },
+  {
+    heading: 'Legge applicabile e foro competente',
+    body: 'I presenti termini sono regolati dalla legge italiana. Per ogni controversia è competente il foro previsto dalla normativa applicabile.',
+  },
+  {
+    heading: 'Modifiche',
+    body: 'I termini possono essere aggiornati; la versione in vigore è quella pubblicata su questa pagina.',
+  },
+]
+---
+
+<MainLayout {title} {description}>
+  <LegalPage {title}>
+    <Alert variant="muted" class="mt-6">
+      <AlertDescription>{t('legal.termsDraftNotice')}</AlertDescription>
+    </Alert>
+
+    <LegalSectionList sections={sections} />
+  </LegalPage>
+</MainLayout>

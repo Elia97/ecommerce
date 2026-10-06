@@ -1,0 +1,69 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+
+  "entry": [
+    "src/components/ui/**",
+    "src/lib/motion/index.ts",
+    // `officina` lo cerca per nome nella radice e lo importa a runtime: nessun import lo raggiunge.
+    "officina.config.ts"
+  ],
+  "ignoreDependencies": [
+    // fallow non conta gli import di astro.config.mjs come uso in produzione.
+    "@astrojs/vercel",
+    "@astrojs/sitemap",
+    // Raggiunta da `@import "tailwindcss"` in globals.css, che fallow non traccia.
+    "tailwindcss",
+    // Il servizio immagini di astro la carica con un import dinamico, in build e in `/_image`.
+    "sharp"
+  ],
+  "ignoreExports": [
+    { "file": "src/components/ui/button.astro", "exports": ["buttonVariants"] },
+    { "file": "src/components/ui/section.astro", "exports": ["sectionVariants"] },
+    { "file": "src/components/ui/heading.astro", "exports": ["headingVariants"] },
+    { "file": "src/components/ui/card/card.astro", "exports": ["cardVariants"] },
+    { "file": "src/lib/motion/media-queries.ts", "exports": ["isDesktopViewport", "hasFinePointer"] },
+    // Consumati attraverso gli alias di vitest.config.ts, che fallow non traccia.
+    {
+      "file": "test/stubs/astro-env-server.ts",
+      "exports": ["getSecret", "CONTACT_FROM_EMAIL", "CONTACT_FROM_NAME", "CONTACT_TO_EMAIL", "BOTID_ENFORCE"]
+    },
+    {
+      "file": "test/stubs/astro-env-client.ts",
+      "exports": ["PUBLIC_GTM_ID", "PUBLIC_IUBENDA_SITE_ID", "PUBLIC_IUBENDA_COOKIE_POLICY_ID"]
+    },
+    { "file": "test/stubs/astro-actions.ts", "exports": ["isInputError", "ActionError", "defineAction", "actions"] },
+    { "file": "test/stubs/astro-config-client.ts", "exports": ["i18n"] },
+    {
+      "file": "test/stubs/astro-i18n.ts",
+      "exports": ["getPathByLocale", "getAbsoluteLocaleUrl", "getRelativeLocaleUrl"]
+    },
+    { "file": "test/stubs/astro-content.ts", "exports": ["getCollection"] },
+    { "file": "test/container.ts", "exports": ["renderToString"] },
+    // I test ci arrivano con un import dinamico che fallow non traccia.
+    { "file": "src/actions/index.ts", "exports": ["handleContact"] },
+    { "file": "src/lib/schemas/common.ts", "exports": ["Cta"] },
+    { "file": "src/lib/schemas/homepage/hero.ts", "exports": ["HeroSection"] }
+  ],
+  // Impone docs/ARCHITECTURE.md § Stratificazione dei sorgenti.
+  "boundaries": {
+    "zones": [
+      { "name": "leaf", "patterns": ["src/lib/**", "src/i18n/**", "src/types/**"] },
+      { "name": "components", "patterns": ["src/components/**"] },
+      { "name": "layouts", "patterns": ["src/layouts/**"] },
+      {
+        "name": "routes",
+        "patterns": ["src/pages/**", "src/actions/**", "src/emails/**", "src/middleware.ts", "src/content.config.ts"]
+      }
+    ],
+    "rules": [
+      { "from": "leaf", "allow": ["leaf"] },
+      { "from": "components", "allow": ["leaf", "components"] },
+      { "from": "layouts", "allow": ["leaf", "components", "layouts"] },
+      { "from": "routes", "allow": ["leaf", "components", "layouts", "routes"] }
+    ]
+  },
+
+  "rules": {
+    "unused-dependencies": "warn"
+  }
+}

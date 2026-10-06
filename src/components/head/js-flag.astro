@@ -1,0 +1,16 @@
+---
+---
+
+{/* data-reveal-active lo imposta src/lib/motion/reveal.ts; reveal-failsafe lo legge src/styles/globals.css. */}
+<script is:inline>
+  function markJs() {
+    document.documentElement.classList.add('js')
+  }
+  markJs()
+  document.addEventListener('astro:after-swap', markJs)
+  setTimeout(function () {
+    if (!document.documentElement.hasAttribute('data-reveal-active')) {
+      document.documentElement.classList.add('reveal-failsafe')
+    }
+  }, 3000)
+</script>

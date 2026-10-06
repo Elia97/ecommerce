@@ -1,0 +1,33 @@
+:root {
+  --neutral-50: oklch(0.985 0 0);
+  --neutral-100: oklch(0.97 0 0);
+  --neutral-200: oklch(0.922 0 0);
+  --neutral-500: oklch(0.556 0 0);
+  --neutral-700: oklch(0.371 0 0);
+  --neutral-800: oklch(0.269 0 0);
+  --neutral-900: oklch(0.205 0 0);
+  --neutral-950: oklch(0.145 0 0);
+
+  /* `--primary`, `--accent` e `--ring` in light.css e dark.css si appoggiano a questa rampa. */
+  --brand-50: oklch(0.985 0 0);
+  --brand-100: oklch(0.97 0 0);
+  --brand-500: oklch(0.556 0 0);
+  --brand-700: oklch(0.371 0 0);
+  --brand-900: oklch(0.205 0 0);
+
+  --red-500: oklch(0.637 0.237 27.325);
+  --red-600: oklch(0.577 0.245 27.325);
+  --green-600: oklch(0.627 0.194 149.214);
+  --green-700: oklch(0.527 0.154 150.069);
+
+  --z-raised: 10;
+  --z-dropdown: 20;
+  --z-header: 50;
+  --z-overlay: 60;
+  --z-skip-link: 100;
+
+  --ease-emphasized: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-slower: 0.6s;
+
+  --radius: 0.625rem;
+}

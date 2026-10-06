@@ -1,0 +1,103 @@
+export type ConsentCategory = 'measurement' | 'marketing'
+
+export interface ConsentPreference {
+  consent?: boolean
+  purposes?: Record<string, boolean | undefined>
+}
+
+export interface ConsentModeUpdate {
+  ad_storage: 'granted' | 'denied'
+  ad_user_data: 'granted' | 'denied'
+  ad_personalization: 'granted' | 'denied'
+  analytics_storage: 'granted' | 'denied'
+}
+
+export type GtagFn = (...args: unknown[]) => void
+
+// Sono gli id di finalità di iubenda nell'oggetto delle preferenze CS, non i nostri.
+const PURPOSE_MEASUREMENT = '4'
+const PURPOSE_MARKETING = '5'
+
+export function mapPreferenceToConsentMode(pref: ConsentPreference): ConsentModeUpdate {
+  const purposes = pref.purposes
+  const hasGranularPurposes = purposes !== undefined && Object.keys(purposes).length > 0
+
+  // iubenda manda "accetta tutto" come consent=true senza finalità granulari.
+  if (pref.consent === true && !hasGranularPurposes) {
+    return {
+      ad_storage: 'granted',
+      ad_user_data: 'granted',
+      ad_personalization: 'granted',
+      analytics_storage: 'granted',
+    }
+  }
+
+  const measurementGranted = purposes?.[PURPOSE_MEASUREMENT] === true
+  const marketingGranted = purposes?.[PURPOSE_MARKETING] === true
+
+  return {
+    ad_storage: marketingGranted ? 'granted' : 'denied',
+    ad_user_data: marketingGranted ? 'granted' : 'denied',
+    ad_personalization: marketingGranted ? 'granted' : 'denied',
+    analytics_storage: measurementGranted ? 'granted' : 'denied',
+  }
+}
+
+export interface ConsentGateDeps {
+  gtag: GtagFn
+  dispatchEvent: (event: Event) => void
+}
+
+export interface ConsentGate {
+  onConsent: (category: ConsentCategory, callback: () => void) => void
+  applyPreference: (pref: ConsentPreference) => void
+  hasConsent: (category: ConsentCategory) => boolean
+}
+
+export function createConsentGate(deps: ConsentGateDeps): ConsentGate {
+  const queues = new Map<ConsentCategory, (() => void)[]>()
+  const granted = new Set<ConsentCategory>()
+
+  const onConsent = (category: ConsentCategory, callback: () => void): void => {
+    if (granted.has(category)) {
+      callback()
+      return
+    }
+    const queue = queues.get(category) ?? []
+    queue.push(callback)
+    queues.set(category, queue)
+  }
+
+  const grant = (category: ConsentCategory): void => {
+    granted.add(category)
+    const queue = queues.get(category)
+    if (queue === undefined) return
+    for (const callback of queue) callback()
+    queues.delete(category)
+  }
+
+  const applyPreference = (pref: ConsentPreference): void => {
+    const update = mapPreferenceToConsentMode(pref)
+    deps.gtag('consent', 'update', update)
+
+    if (update.analytics_storage === 'granted') grant('measurement')
+    if (update.ad_storage === 'granted') grant('marketing')
+
+    deps.dispatchEvent(new CustomEvent('consent_given', { detail: { update, preference: pref } }))
+  }
+
+  const hasConsent = (category: ConsentCategory): boolean => granted.has(category)
+
+  return { onConsent, applyPreference, hasConsent }
+}
+
+export const consentGate = createConsentGate({
+  gtag: (...args) => {
+    window.gtag(...args)
+  },
+  dispatchEvent: (event) => {
+    window.dispatchEvent(event)
+  },
+})
+
+export const onConsent = consentGate.onConsent

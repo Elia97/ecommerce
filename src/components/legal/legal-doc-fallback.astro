@@ -1,0 +1,37 @@
+---
+// Mai prosa legale segnaposto: un testo di bozza su una /privacy viva si legge come una policy vera.
+import Heading from '@/components/ui/heading.astro'
+
+import { iubendaHostedUrl, type LegalDocKind } from '@/lib/legal/documents'
+
+import { useTranslations } from '@/i18n/translate'
+
+interface Props {
+  kind: LegalDocKind
+}
+
+const { kind } = Astro.props
+const t = useTranslations(Astro.currentLocale)
+const title = kind === 'privacy' ? t('legal.privacyPolicyTitle') : t('legal.cookiePolicyTitle')
+const hostedUrl = iubendaHostedUrl(kind)
+---
+
+<div>
+  <Heading as="h1" size="h1">{title}</Heading>
+  <p class="mt-6 font-medium text-foreground">{t('legal.unavailable')}</p>
+  {
+    hostedUrl && (
+      <>
+        <p class="mt-2 text-muted-foreground">{t('legal.hostedVersion')}</p>
+        <a
+          href={hostedUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="mt-6 inline-block font-medium text-foreground underline underline-offset-4"
+        >
+          {t('legal.openOnIubenda')}
+        </a>
+      </>
+    )
+  }
+</div>

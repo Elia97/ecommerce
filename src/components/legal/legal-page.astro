@@ -1,0 +1,23 @@
+---
+import Container from '@/components/ui/container.astro'
+import Heading from '@/components/ui/heading.astro'
+import Section from '@/components/ui/section.astro'
+
+interface Props {
+  title: string
+}
+
+const { title } = Astro.props
+---
+
+<Section>
+  <Container>
+    <div class="mx-auto max-w-3xl">
+      <Heading as="h1" size="h1">
+        {title}
+      </Heading>
+
+      <slot />
+    </div>
+  </Container>
+</Section>

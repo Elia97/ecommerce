@@ -1,0 +1,137 @@
+import { describe, expect, it, vi } from 'vitest'
+
+import { ctaHref, localizedHref } from '@/i18n/href'
+import { ariaCurrent, localeAgnosticPath, localeSwitchHref } from '@/i18n/path'
+
+vi.mock('@/i18n/segments-by-locale', () => import('@test/helpers/second-locale').then((m) => m.translatedSegments))
+
+// Un canonical che non concorda con la pagina su cui sta viene ignorato dai motori di ricerca.
+describe('localeAgnosticPath', () => {
+  it('leaves a default-locale path as it is', () => {
+    expect(localeAgnosticPath('/contatti', 'it')).toBe('/contatti')
+  })
+
+  it('strips the prefix of a secondary locale', () => {
+    expect(localeAgnosticPath('/en/about', 'en')).toBe('/about')
+  })
+
+  it('riporta alla lingua di default il segmento tradotto', () => {
+    expect(localeAgnosticPath('/en/contact', 'en')).toBe('/contatti')
+  })
+
+  it('reduces a bare locale prefix to the root', () => {
+    expect(localeAgnosticPath('/en', 'en')).toBe('/')
+  })
+
+  it('does not strip a prefix that only looks like one', () => {
+    expect(localeAgnosticPath('/enoteca', 'en')).toBe('/enoteca')
+  })
+
+  it('keeps the root as the root', () => {
+    expect(localeAgnosticPath('/', 'it')).toBe('/')
+  })
+
+  // `trailingSlash: 'never'` (astro.config.mjs): un canonical che ce l'ha fa concorrenza
+  // all'URL della pagina stessa per lo stesso contenuto.
+  it.each([
+    ['/contatti/', '/contatti'],
+    ['/contatti///', '/contatti'],
+  ])('normalizes %s to %s', (input, expected) => {
+    expect(localeAgnosticPath(input, 'it')).toBe(expected)
+  })
+
+  it('normalizes a stripped prefix that leaves a trailing slash', () => {
+    expect(localeAgnosticPath('/en/', 'en')).toBe('/')
+  })
+
+  // Un canonical vuoto si risolve contro l'origine, non contro la pagina.
+  it('recovers the root from a path that is only slashes', () => {
+    expect(localeAgnosticPath('///', 'it')).toBe('/')
+  })
+})
+
+describe('localeSwitchHref', () => {
+  it.each([
+    ['/', 'it', 'en', '/en'],
+    ['/en', 'en', 'it', '/'],
+    ['/contatti', 'it', 'en', '/en/contact'],
+    ['/en/contact', 'en', 'it', '/contatti'],
+  ])('da %s (%s) verso %s porta a %s', (pathname, current, target, expected) => {
+    expect(localeSwitchHref(target, pathname, current)).toBe(expected)
+  })
+})
+
+describe('ariaCurrent', () => {
+  it.each([
+    ['/', 'it'],
+    ['/en', 'en'],
+  ])('marca la home come pagina corrente su %s (%s)', (pathname, locale) => {
+    expect(ariaCurrent('/', pathname, locale)).toBe('page')
+  })
+
+  it('marca la voce di una pagina interna quando è quella aperta', () => {
+    expect(ariaCurrent('/contatti', '/contatti', 'it')).toBe('page')
+  })
+
+  it("marca la stessa voce sulla pagina tradotta dell'altra lingua", () => {
+    expect(ariaCurrent('/contatti', '/en/contact', 'en')).toBe('page')
+  })
+
+  it('marca la stessa voce anche con lo slash finale', () => {
+    expect(ariaCurrent('/contatti', '/contatti/', 'it')).toBe('page')
+  })
+
+  it('marca come sezione la voce di cui la pagina aperta è una sottopagina', () => {
+    expect(ariaCurrent('/work', '/work/case-study', 'it')).toBe('true')
+  })
+
+  it('non fa mai della home la sezione delle altre pagine', () => {
+    expect(ariaCurrent('/', '/contatti', 'it')).toBeUndefined()
+  })
+
+  it('non prende per sottopagina un percorso che ha solo lo stesso prefisso', () => {
+    expect(ariaCurrent('/work', '/workshop', 'it')).toBeUndefined()
+  })
+
+  it('ripiega sulla lingua di default quando Astro non ne dà una', () => {
+    expect(ariaCurrent('/contatti', '/contatti', undefined)).toBe('page')
+  })
+})
+
+describe('localizedHref', () => {
+  it('is identity for the default locale', () => {
+    expect(localizedHref('it', '/contatti')).toBe('/contatti')
+  })
+
+  it('prefissa la lingua secondaria e ne traduce il segmento', () => {
+    expect(localizedHref('en', '/contatti')).toBe('/en/contact')
+    expect(localizedHref('en', '/about')).toBe('/en/about')
+  })
+
+  // Astro.currentLocale è undefined su una pagina fuori dal routing i18n.
+  it('falls back to the default locale when none is given', () => {
+    expect(localizedHref(undefined, '/contatti')).toBe('/contatti')
+  })
+})
+
+describe('ctaHref', () => {
+  it.each([
+    ['it', '/contatti', '/contatti'],
+    ['en', '/contatti', '/en/contact'],
+    ['it', '/', '/'],
+    ['en', '/', '/en'],
+  ])('in %s localizza il percorso %s come %s', (locale, url, expected) => {
+    expect(ctaHref(locale, url)).toBe(expected)
+  })
+
+  it.each([
+    '#section',
+    'http://example.org',
+    'https://example.org/page',
+    'mailto:info@example.com',
+    'tel:+390000000000',
+  ])("lascia %s com'è in ogni lingua", (url) => {
+    expect(ctaHref('it', url)).toBe(url)
+    expect(ctaHref('en', url)).toBe(url)
+  })
+})
