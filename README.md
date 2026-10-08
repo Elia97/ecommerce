@@ -143,8 +143,9 @@ la CI, con `pnpm run check:links` sulla build.
 - **Primitive di interfaccia** (`src/components/ui/`): `.astro` native, cva e `cn()`, la forma
   dell'API di shadcn, zero JS lato client. Le famiglie composte (card, alert) sono cartelle con un
   barrel `.ts`; il layout vive solo in `Container` e `Section`.
-- **Layout di base e SEO** (`src/layouts/main.astro`): head centralizzata, tema scuro senza FOUC,
-  skip-link, view transition.
+- **Layout di base e SEO** (`src/layouts/`): `document.astro` è il guscio, con la head
+  centralizzata, il tema scuro senza FOUC e le view transition; `main.astro` ci aggiunge skip-link,
+  header, footer e tracciamento.
 - **Pagine a sezioni** (`src/content/homepage/*.yml` per la homepage): un YAML per sezione, accesso
   tipizzato solo tramite `get<Nome>Sections(locale)` — che è anche la cucitura verso un CMS.
   `pnpm gen:collection` ne crea altre.
@@ -229,8 +230,8 @@ quindi un webfont è solo configurazione:
 1. In `astro.config.mjs` aggiungi la voce `fonts` (API font di Astro) con
    `cssVariable: '--font-stack-base'` (e/o `--font-stack-display`) e
    `fallbacks: ['system-ui', 'sans-serif']`.
-2. Rendi `<Font cssVariable="--font-stack-base" preload />` nell'`<head>` del layout
-   (`src/layouts/main.astro`).
+2. Rendi `<Font cssVariable="--font-stack-base" preload />` nell'`<head>` del guscio
+   (`src/layouts/document.astro`).
 
 Nessuna modifica ai componenti né al CSS: `--font-sans` e `--font-display` in `globals.css` puntano
 già a quegli agganci.
@@ -285,7 +286,9 @@ puramente additiva.
    (I passi da 1 a 3 sono tenuti insieme da `src/i18n/locale-config.test.ts`.)
 4. `src/i18n/strings/<lingua>.ts` — esporta un `Record<UIKey, string>`; il compilatore costringe a
    coprire ogni chiave.
-5. `src/i18n/ui.ts` — registra il dizionario nuovo in `dictionaries`.
+5. `src/i18n/ui.ts` — registra il dizionario nuovo in `dictionaries`. Se il progetto ha dizionari di
+   dominio, ognuno vuole il suo `src/i18n/<dominio>/<lingua>.ts`, registrato nel suo `index.ts`, e il
+   type-check si ferma finché manca (`docs/guides/content-collections.md` § Dizionari di dominio).
 6. `src/i18n/segments-by-locale.ts` — mappa i segmenti di URL di primo livello che cambiano
    (`contatti` → `contact`); quelli non mappati passano così come sono.
 7. Contenuti: aggiungi i file `src/content/<collection>/<lingua>/…` (il contenuto nella lingua di

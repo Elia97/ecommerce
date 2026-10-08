@@ -85,7 +85,7 @@ regione della funzione.
 
 ## La catena dei gate
 
-Sette gate, e ognuno copre un momento che gli altri non coprono:
+Otto gate, e ognuno copre un momento che gli altri non coprono:
 
 | Gate | Dove | Copre |
 |---|---|---|
@@ -94,6 +94,7 @@ Sette gate, e ognuno copre un momento che gli altri non coprono:
 | `pnpm run check:placeholders` | job `deploy`, prima di `pnpm run ci` e dopo `vercel pull` | i segnaposto del template nei sorgenti e nell'ambiente di produzione |
 | `pnpm perf:bundle` | `ci.yml`, dopo la build | il JavaScript client per rotta |
 | `pnpm run check:links` | `ci.yml`, dopo la build | i link interni della build: nessuno porta a `#` o a una pagina che non esiste |
+| `pnpm run check:secrets` | `ci.yml`, dopo la build con i canary | le chiavi server e secret di `env.schema`: nessuna finisce nei file di `dist/client` |
 | `pnpm run test:e2e` | `ci.yml`, sulla stessa build | ciò che si rompe solo dentro un browser |
 | `pnpm smoke:prod` | job `deploy`, dopo il deploy | ciò che il bordo serve davvero |
 
@@ -175,8 +176,8 @@ tutti, e taglia il tag solo dopo il merge.
 
 Non se ne scrive mai niente a mano nel codice applicativo, e non si duplica quello che l'adapter già
 genera (il redirect sullo slash finale che nasce da `trailingSlash` è uno di questi casi). La CSP è
-l'unica eccezione, e va nella direzione opposta: tutto tranne `frame-ancestors` viene generato in
-fase di build — vedi § Content-Security-Policy.
+l'unica eccezione, e va nella direzione opposta: tutto tranne `frame-ancestors` lo genera il codice,
+in fase di build o nel middleware — vedi § Content-Security-Policy.
 
 Anche `git.deploymentEnabled` vive qui, con `dependabot/**` a `false`: i branch di dependabot non
 ricevono nessun deploy di preview. E `ignoreCommand`, che è il comando dell'Ignored Build Step —
@@ -215,24 +216,33 @@ diventa un `<meta>`, che nessun middleware che riscriva una direttiva toccherà 
 
 ## Content-Security-Policy
 
-La policy si **costruisce in fase di build, non si dichiara in `vercel.json`**. Due metà, divise da
+La policy si **costruisce dal codice, non si dichiara in `vercel.json`**. Due metà, divise da
 quello che una CSP in `<meta>` può esprimere:
 
 - `vercel.json` porta `frame-ancestors 'none'` e nient'altro: è l'unica direttiva che una CSP in
   `<meta>` ignora, quindi deve viaggiare come intestazione.
-- Tutto il resto lo genera `cspIntegration()` (`src/lib/csp/integration.ts`), registrata in
-  `astro.config.mjs`. Su `astro:build:done` calcola l'hash di ogni script inline eseguibile
-  nell'output della build e inietta la policy come `<meta>` subito dopo `<meta charset>`: una CSP in
-  meta governa solo quello che la segue, quindi deve precedere ogni script.
+- Tutto il resto sta in un `<meta>` subito dopo `<meta charset>`: una CSP in meta governa solo
+  quello che la segue, quindi deve precedere ogni script. Lo scrive `cspIntegration()`
+  (`src/lib/csp/integration.ts`, registrata in `astro.config.mjs`) nelle pagine prerenderizzate, e
+  `src/middleware.ts` in quelle rese a richiesta.
 
 `script-src` porta quindi degli hash SHA-256 più `'self'`, e **mai** `'unsafe-inline'`
 (`src/lib/csp/csp.test.ts`). Tre conseguenze che non si vedono leggendo un file solo:
 
-- **Ogni pagina porta l'unione degli hash**, non i propri. `ClientRouter` scambia la `<head>`, non la
-  policy, quindi la prima pagina caricata governa tutta la sessione: una policy per pagina si
-  romperebbe alla seconda navigazione.
-- **È coperto solo l'HTML prerenderizzato.** L'integrazione attraversa gli `.html` emessi; una rotta
-  on-demand che restituisce HTML con uno script inline ha bisogno di una policy propria.
+- **Ogni pagina prerenderizzata porta l'unione degli hash**, non i propri: su `astro:build:done`
+  l'integrazione calcola l'hash di ogni script inline eseguibile negli `.html` emessi. A ogni
+  navigazione `ClientRouter` aggiunge alla `<head>` il `<meta>` della pagina nuova, e il browser
+  applica anche quello: le policy delle pagine visitate si sommano, e uno script parte solo se le
+  passa tutte. Con una policy per pagina, lo script proprio di una pagina verrebbe bloccato da quella
+  di una pagina vista prima.
+- **Una pagina resa a richiesta porta la policy dei suoi soli script, e sta fuori da
+  `ClientRouter`.** Il middleware legge l'HTML di una rotta non prerenderizzata, ne calcola gli hash
+  e inietta il `<meta>` allo stesso modo. Quegli script le prerenderizzate non li conoscono, quindi
+  `src/layouts/document.astro` rende `<ClientRouter />` solo con `Astro.isPrerendered`: alla pagina
+  si arriva e se ne esce con un caricamento completo, che parte dalla sua policy. Costa tre cose:
+  niente view transition da e verso quella pagina; dal router ci si entra con una richiesta in più,
+  che il router scarta prima di ricaricare, a meno che il link porti `data-astro-reload`; e la
+  risposta perde lo streaming, perché gli hash vanno nella `<head>` e si conoscono a corpo finito.
 - **`style-src` tiene `'unsafe-inline'` di proposito.** È una regola del browser, non di Astro:
   **nel momento in cui su una direttiva compare un hash, `'unsafe-inline'` viene ignorato**. La
   `security.csp` nativa di Astro calcola l'hash anche degli stili, senza possibilità di sfilarsi
@@ -262,8 +272,8 @@ La regola che decide se un fornitore tocca la CSP oppure no:
   allarga la direttiva *specifica* che gli serve (`script-src`, `connect-src`, `img-src`,
   `frame-src`), mai `default-src`, e si aggiorna `src/lib/csp/csp.test.ts` nello stesso commit.
 - Una voce mancante fallisce **in silenzio** in un modo che lo sviluppo locale non può mostrare:
-  `astro dev` non legge mai `vercel.json`, e l'iniezione in fase di build gira solo su una build
-  vera. Si deploya una preview e si guarda la console sia sul percorso di accettazione sia su quello
+  `astro dev` non legge mai `vercel.json`, e l'iniezione nelle pagine prerenderizzate gira solo su
+  una build vera: in sviluppo la policy la ricevono soltanto le pagine rese a richiesta. Si deploya una preview e si guarda la console sia sul percorso di accettazione sia su quello
   di rifiuto prima di dire che è fatta.
 - `'unsafe-eval'` è rifiutato, e qui non serve a niente.
 - BotID **non** ha bisogno di nessuna voce nella CSP: la sua sfida passa da un proxy di stessa
