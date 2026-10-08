@@ -1,4 +1,6 @@
-Template Astro riutilizzabile (uso personale e freelance). Il metodo di lavoro — commenti, commit e PR, lingua, pianificazione, agenti verticali, orchestrazione — sta nel plugin `metodo` e in `metodo.md` del repository `metodo-astro`, che il sistema di lavoro importa nel `CLAUDE.md` di ogni progetto: le sue regole `[HARD]` valgono anche qui. Questo file porta solo lo stack e le convenzioni del codice.
+`ecommerce` è lo spinoff di `vetrina` per gli ecommerce. La base si cambia in `vetrina` e scende qui con il cherry-pick dei suoi commit, a partire dal commit scritto in `.upstream`: qui si tocca soltanto nei punti di aggancio. La procedura sta in `README.md` § Allineamento a vetrina.
+
+Template Astro riutilizzabile (uso personale e freelance). Il metodo di lavoro — commenti, commit e PR, lingua, pianificazione, agenti verticali, orchestrazione — sta nel plugin `metodo` e in `metodo.md` del repository `Elia97/metodo`, che il sistema di lavoro importa nel `CLAUDE.md` di ogni progetto: le sue regole `[HARD]` valgono anche qui. Questo file porta solo lo stack e le convenzioni del codice.
 
 ## Stack e convenzioni
 

@@ -12,6 +12,15 @@
 - **Politica di scansione**: `src/lib/seo/crawl-policy.ts` è la fonte unica di verità su cosa resta fuori dalla ricerca, letta dal filtro della sitemap, da `robots.txt` e dal middleware. Vedi `docs/guides/seo.md` § Sitemap e robots.
 - **Consenso e analytics**: spenti se non configurati — senza **entrambi** un id di container GTM e un id di sito iubenda il layout non rende nessun CMP, nessun tag e nessun cookie. Accenderli non richiede nessuna modifica alla CSP: gli host di GTM, GA4 e iubenda stanno già in `src/lib/csp/directives.ts`. Un tag che il cliente aggiunge dopo, dal pannello GTM, può invece caricare host che lì non ci sono: la tabella tag → host sta nella guida. Vedi `docs/guides/deploy-ops.md` § Tracciamento e Consent Mode v2.
 - **Regione delle funzioni**: `fra1` (`vercel.json`). Lasciata vuota, Vercel usa `iad1` e ogni rotta SSR e ogni azione attraversano l'Atlantico due volte.
+- **Discendenza**: spinoff di `vetrina` per gli ecommerce. La base che questo file descrive viene da lì; lo strato ecommerce — dati, utenti, catalogo, ordini e back-office — non c'è ancora. Vedi § Il rapporto con vetrina, qui sotto.
+
+## Il rapporto con vetrina
+
+La base si cambia in `vetrina` e scende qui con il cherry-pick dei suoi commit, a partire dal commit
+scritto in `.upstream`. Qui la base si tocca soltanto nei punti di aggancio, dove lo strato
+ecommerce la estende aggiungendo in coda: ogni altra modifica alla base si scrive in `vetrina` e
+scende da lì, e non sale mai da qui. La procedura del giro — i commit da portare, quelli che non
+scendono, la verifica — sta in `README.md` § Allineamento a vetrina.
 
 ## Struttura del repository
 

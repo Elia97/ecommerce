@@ -1,7 +1,16 @@
-# vetrina
+# ecommerce
 
-Template Astro per siti vetrina, uso personale e freelance: per ogni progetto nuovo si riparte da qui
-invece di lavorare dentro `vetrina` stesso. È il primo dei tre template del sistema, con `ecommerce` e `monorepo`.
+Template Astro per gli ecommerce, uso personale e freelance: per ogni progetto nuovo si riparte da
+qui invece di lavorare dentro `ecommerce` stesso. È il secondo dei tre template del sistema, fra
+`vetrina`, di cui è lo spinoff, e `monorepo`.
+
+Ha la base di `vetrina` con tutti i suoi aspetti, e ci aggiungerà quello che serve a un ecommerce:
+dati, utenti, catalogo, ordini e back-office. **Oggi quello strato non c'è ancora**: il repository è
+la base di `vetrina` al commit scritto in `.upstream`, e i cambi della base scendono da lì con il
+cherry-pick (§ Allineamento a vetrina, sotto).
+
+**È pubblico, come `vetrina`.** Dai progetti dei clienti sale soltanto lo strato generico, senza
+dati, testi né scelte del cliente.
 
 **È specifico per Vercel.** `vercel.json` porta intestazioni, redirect, rewrite e regione delle
 funzioni, l'adapter è `@astrojs/vercel`, il form di contatto passa da Vercel BotID, e la
@@ -13,7 +22,7 @@ su un altro host non è una riga di configurazione.
 `docs/guides/deploy-ops.md` § La catena dei gate.
 
 Il metodo di lavoro — commit e PR, commenti, lingua, pianificazione, agenti verticali — non sta in
-questo repository: è il plugin `metodo` e `metodo.md` del repository `metodo-astro`, che il sistema
+questo repository: è il plugin `metodo` e `metodo.md` del repository `Elia97/metodo`, che il sistema
 di lavoro importa in ogni progetto. Questo file copre quello che succede *dentro* il repo.
 
 ## Come nasce un progetto
@@ -27,9 +36,9 @@ commerciale: brief, decisioni, stima e verbali stanno nel sistema; qui si scrive
 
 ### Alla creazione
 
-1. Su GitHub, **«Use this template» → «Create a new repository»**, privato, sotto il tuo account e
-   non nell'organizzazione del committente (non `git clone`, che si trascinerebbe dietro la storia
-   git e i tag di release di questo repo).
+1. Su GitHub, da `Elia97/ecommerce`, **«Use this template» → «Create a new repository»**, privato,
+   sotto il tuo account e non nell'organizzazione del committente (non `git clone`, che si
+   trascinerebbe dietro la storia git e i tag di release di questo repo).
 2. Clonalo nella cartella del progetto del sistema (`progetti/<id>/repo/`), poi `corepack enable &&
    pnpm install`: installa dipendenze e hook git (lefthook).
 3. **Metti dependabot in pausa**. Il primo giro è già partito: «Use this template» crea il commit
@@ -58,9 +67,10 @@ commerciale: brief, decisioni, stima e verbali stanno nel sistema; qui si scrive
    (`git remote set-url origin …`) e verifica che l'app Vercel sia installata sull'organizzazione
    di destinazione, altrimenti il collegamento git del progetto si rompe.
 7. Riallinea lo scaffold al template corrente, che nel frattempo è cambiato: `git remote add
-   template git@github.com:Elia97/vetrina.git`, `git fetch template`, `git diff HEAD
+   template git@github.com:Elia97/ecommerce.git`, `git fetch template`, `git diff HEAD
    template/main -- ':!docs' ':!README.md' ':!.github/dependabot.yml'`. Le storie sono scorrelate:
-   si legge il diff e si riportano a mano le differenze che contano, non si fa merge.
+   si legge il diff e si riportano a mano le differenze che contano, non si fa merge. Fra queste c'è
+   `.upstream`, che si porta così com'è: dice su quale `vetrina` poggia la base.
 8. `bash scripts/bootstrap-github.sh` da dentro il clone (serve `gh` autenticato): label di
    dependabot, merge solo in squash, permessi Actions per release-please, e il ruleset su `main` (PR
    obbligatoria, `ci` come check richiesto, branch aggiornato prima del merge, nessun push diretto).
@@ -94,7 +104,7 @@ commerciale: brief, decisioni, stima e verbali stanno nel sistema; qui si scrive
 La superficie completa, in un posto solo — la milestone `foundations` la distribuisce su tre issue:
 
 - `package.json#name` (e `release-please-config.json`): trapela nel changelog che release-please
-  genera, quindi deve corrispondere al progetto nuovo e non restare `vetrina`;
+  genera, quindi deve corrispondere al progetto nuovo e non restare `ecommerce`;
 - `src/lib/site.ts`: nome, url, descrizione, voci di nav, CTA e legali (la chrome si rende da qui, e
   le voci portano chiavi i18n, non testo), più i profili di `SITE.social`, che arriva vuoto: ogni
   profilo aggiunto finisce nel footer e nel `sameAs` del JSON-LD;
@@ -176,7 +186,7 @@ Il perché e il dettaglio stanno in `docs/guides/*.md` e in `docs/ARCHITECTURE.m
 ## Strumenti di Claude Code
 
 Questo repo non porta agenti, comandi né hook: li fornisce il plugin `metodo` (repository
-`metodo-astro`, con le istruzioni di installazione nel suo README), attivo a livello utente in ogni
+`Elia97/metodo`, con le istruzioni di installazione nel suo README), attivo a livello utente in ogni
 cartella. Il `.claude/settings.json` tiene solo i permessi per chi apre la sessione qui dentro.
 
 ## Configurare il form di contatto
@@ -321,3 +331,51 @@ fallire.
 
 Le convenzioni `[HARD]` complete stanno in `metodo.md` del plugin; lo stack in `CLAUDE.md` e la
 panoramica in `docs/ARCHITECTURE.md`.
+
+## Allineamento a vetrina
+
+La base di questo repository si cambia in `vetrina` e scende qui con il cherry-pick dei suoi commit.
+`.upstream`, alla radice, dice fin dove è arrivata: `repository` è il template da cui scende,
+`commit` l'ultimo commit di `vetrina` già letto. Lo aggiornano soltanto le PR di allineamento.
+
+Il giro lo fa questo repository, e allo stesso modo ogni repository che poggia direttamente su
+`vetrina` con un suo `.upstream`. Un progetto nato da qui non lo fa: si riallinea a `ecommerce` al
+cancello, con il passo 7, e `.upstream` gli resta come dato, perché dice su quale `vetrina` poggia
+la base.
+
+Una volta sola, nel checkout:
+
+```bash
+git remote add vetrina git@github.com:Elia97/vetrina.git
+```
+
+A ogni giro:
+
+1. Si legge che cosa è arrivato in `vetrina` dopo `.upstream`:
+
+   ```bash
+   git fetch vetrina
+   git log --oneline --reverse "$(sed -n 's/^commit=//p' .upstream)..vetrina/main"
+   ```
+
+2. Se l'elenco non è vuoto, si apre una issue `chore(vetrina): allineamento fino a <sha7>`, con
+   l'esito di ogni commit: scende, non scende, o scende in parte e perché. Il tipo è `chore` perché
+   il template non si rilascia; un repository che si rilascia usa un tipo rilasciabile quando il giro
+   porta codice che deve arrivare in produzione.
+3. Sul branch della issue si porta un commit alla volta, nell'ordine dell'elenco, con
+   `git cherry-pick --no-commit <sha>`. Non scendono:
+   - i `chore(deps)` e i `chore(deps-dev)`: le versioni, qui, le porta il Dependabot di questo
+     repository;
+   - i `docs(roadmap)`: la roadmap di `vetrina` non è quella di qui.
+4. README e `CLAUDE.md` si portano a mano: le modifiche di `vetrina` si riscrivono nel testo di qui,
+   e in un conflitto vale la versione di qui.
+5. `pnpm-lock.yaml` resta quello di questo repository e, dopo un commit che cambia le dipendenze, si
+   rigenera con `pnpm install`.
+6. `.upstream` passa all'ultimo SHA letto, anche quando quel commit non scende.
+7. Si verifica con `pnpm run ci`, `pnpm run build`, `pnpm run test:e2e` e `pnpm run doctor`, più
+   `git diff --stat vetrina/main HEAD`. Il diff mostra i file dell'identità — questo README,
+   `CLAUDE.md`, `docs/ARCHITECTURE.md`, `package.json` e `.upstream` —, lo strato ecommerce e, finché
+   i due Dependabot non si pareggiano, versioni diverse in `package.json` e `pnpm-lock.yaml`: il giro
+   è a posto quando non mostra nient'altro.
+
+La cadenza: un controllo il lunedì, e un giro obbligatorio prima di far nascere un progetto.
