@@ -394,7 +394,12 @@ A ogni giro:
    `git cherry-pick --no-commit <sha>`. Non scendono:
    - i `chore(deps)` e i `chore(deps-dev)`: le versioni, qui, le porta il Dependabot di questo
      repository;
-   - i `docs(roadmap)`: la roadmap di `vetrina` non è quella di qui.
+   - i `docs(roadmap)` che toccano le milestone o la tabella di `docs/ROADMAP.md`: la roadmap di
+     `vetrina` non è quella di qui.
+
+   Scende invece un `docs(roadmap)` che tocca l'intestazione di `docs/ROADMAP.md`, cioè il modello
+   delle milestone e le regole di stima: è l'impalcatura comune ai due template, e i progetti nati
+   da qui la ereditano. Se il commit tocca le due parti, scende soltanto l'intestazione.
 4. README e `CLAUDE.md` si portano a mano: le modifiche di `vetrina` si riscrivono nel testo di qui,
    e in un conflitto vale la versione di qui.
 5. `pnpm-lock.yaml` resta quello di questo repository e, dopo un commit che cambia le dipendenze, si
