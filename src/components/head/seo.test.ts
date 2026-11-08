@@ -4,7 +4,6 @@ import { resolveHeadSeoMeta } from '@/components/head/seo'
 
 import { localeTag, SITE } from '@/lib/site'
 
-import { localeSwitchHref } from '@/i18n/path'
 import { useTranslations } from '@/i18n/translate'
 
 vi.mock('astro:config/client', () => import('@test/helpers/second-locale').then((m) => m.twoLocaleConfig))
@@ -14,6 +13,7 @@ const params = {
   title: 'Page title',
   absoluteTitle: false,
   currentLocale: 'it',
+  pathname: '/',
   canonicalPath: '/',
   ogImage: undefined,
   locales: undefined,
@@ -33,14 +33,14 @@ describe('resolveHeadSeoMeta', () => {
   it('falls back to the default locale when none is set (prerendered pages)', () => {
     const meta = resolveHeadSeoMeta({ ...params, currentLocale: undefined, canonicalPath: '/privacy' })
     expect(meta.canonical).toBe('https://example.com/privacy')
-    expect(meta.currentTag).toBe('it-IT')
+    expect(meta.currentTag).toBe(localeTag('it'))
   })
 
   it('emits one alternate per configured locale, agreeing with the canonical', () => {
     const meta = resolveHeadSeoMeta({ ...params, canonicalPath: '/privacy' })
     expect(meta.localeAlternates).toEqual([
-      { tag: 'it-IT', href: 'https://example.com/privacy' },
-      { tag: 'en', href: 'https://example.com/en/privacy' },
+      { tag: localeTag('it'), href: 'https://example.com/privacy' },
+      { tag: localeTag('en'), href: 'https://example.com/en/privacy' },
     ])
     expect(meta.defaultHref).toBe('https://example.com/privacy')
   })
@@ -51,55 +51,6 @@ describe('resolveHeadSeoMeta', () => {
 
     const custom = resolveHeadSeoMeta({ ...params, ogImage: '/covers/home.png' })
     expect(custom.socialImage.url).toBe('https://example.com/covers/home.png')
-  })
-})
-
-describe("resolveHeadSeoMeta() da una pagina nell'altra lingua", () => {
-  it('fa concordare canonical, alternate e x-default sul segmento tradotto', () => {
-    const meta = resolveHeadSeoMeta({ ...params, currentLocale: 'en', canonicalPath: '/en/contact' })
-    expect(meta.canonical).toBe('https://example.com/en/contact')
-    expect(meta.currentTag).toBe('en')
-    expect(meta.localeAlternates).toEqual([
-      { tag: 'it-IT', href: 'https://example.com/contatti' },
-      { tag: 'en', href: 'https://example.com/en/contact' },
-    ])
-    expect(meta.defaultHref).toBe('https://example.com/contatti')
-  })
-
-  it('dà alla home il prefisso come canonical e la radice come x-default', () => {
-    const meta = resolveHeadSeoMeta({ ...params, currentLocale: 'en', canonicalPath: '/en' })
-    expect(meta.canonical).toBe('https://example.com/en')
-    expect(meta.localeAlternates).toEqual([
-      { tag: 'it-IT', href: 'https://example.com' },
-      { tag: 'en', href: 'https://example.com/en' },
-    ])
-    expect(meta.defaultHref).toBe('https://example.com')
-  })
-})
-
-describe('resolveHeadSeoMeta() con le lingue dichiarate dalla pagina', () => {
-  it("emette gli alternate delle sole lingue della pagina, e x-default se c'è la lingua di default", () => {
-    const meta = resolveHeadSeoMeta({ ...params, canonicalPath: '/privacy', locales: ['it'] })
-    expect(meta.localeAlternates).toEqual([{ tag: 'it-IT', href: 'https://example.com/privacy' }])
-    expect(meta.defaultHref).toBe('https://example.com/privacy')
-  })
-
-  it('non emette x-default quando la pagina non esiste nella lingua di default', () => {
-    const meta = resolveHeadSeoMeta({ ...params, currentLocale: 'en', canonicalPath: '/en/news', locales: ['en'] })
-    expect(meta.localeAlternates).toEqual([{ tag: 'en', href: 'https://example.com/en/news' }])
-    expect(meta).not.toHaveProperty('defaultHref')
-  })
-
-  it.each([
-    ['/contatti', 'it'],
-    ['/en/contact', 'en'],
-    ['/en', 'en'],
-  ])("da %s (%s) il selettore porta dove punta l'alternate di ogni lingua", (pathname, current) => {
-    const meta = resolveHeadSeoMeta({ ...params, currentLocale: current, canonicalPath: pathname })
-    for (const code of ['it', 'en']) {
-      const alternate = meta.localeAlternates.find((alt) => alt.tag === localeTag(code))
-      expect(new URL(alternate?.href ?? '').pathname).toBe(localeSwitchHref(code, pathname, current))
-    }
   })
 })
 

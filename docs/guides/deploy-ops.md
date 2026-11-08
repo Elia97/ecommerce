@@ -92,7 +92,7 @@ Otto gate, e ognuno copre un momento che gli altri non coprono:
 | il check obbligatorio `ci` | ruleset di `main`, da `scripts/bootstrap-github.sh` | tutto ciò che atterra su `main` |
 | `pnpm run ci` | job `deploy`, sul tag | ciò che parte dal tag |
 | `pnpm run check:placeholders` | job `deploy`, prima di `pnpm run ci` e dopo `vercel pull` | i segnaposto del template nei sorgenti e nell'ambiente di produzione |
-| `pnpm perf:bundle` | `ci.yml`, dopo la build | il JavaScript client per rotta |
+| `pnpm perf:bundle` | `ci.yml`, dopo la build | il JavaScript client per rotta, il foglio di stile e le sue media query |
 | `pnpm run check:links` | `ci.yml`, dopo la build | i link interni della build: nessuno porta a `#` o a una pagina che non esiste |
 | `pnpm run check:secrets` | `ci.yml`, dopo la build con i canary | le chiavi server e secret di `env.schema`: nessuna finisce nei file di `dist/client` |
 | `pnpm run test:e2e` | `ci.yml`, sulla stessa build | ciò che si rompe solo dentro un browser |
@@ -150,9 +150,15 @@ CI per assenza, che è il modo peggiore di passare.
 - **`permissions` è dichiarato in `ci.yml`, non ereditato.** È il workflow che gira su ogni pull
   request, quindi quello più esposto, e il default del repository vale solo finché nessuno lo
   cambia dalle impostazioni: la riga nel file no.
-- **`ci.yml` non salta niente su `pull_request`.** Il suo `paths-ignore` riguarda solo i push su
-  `main`: il ruleset pretende il check, e un job saltato non riporta *nessuno* stato — quindi una PR
-  che l'ha saltato resta appesa per sempre su «Expected — Waiting for status» invece di fallire.
+- **`ci.yml` gira solo sulle pull request.** Il ruleset vuole il branch aggiornato prima del merge,
+  quindi dopo lo squash `main` ha l'albero già provato sulla PR, e la produzione rilancia
+  `pnpm run ci` sul tag. Nemmeno le cache valgono una corsa su `main`, misurato sulle corse di
+  vetrina: senza lo store pnpm, setup-node e l'installazione durano quanto con lo store ripristinato,
+  e `playwright install --with-deps` gira comunque per i pacchetti di sistema, quindi la cache del
+  browser fa risparmiare pochi secondi.
+- **Sulle pull request `ci.yml` non salta niente.** Un `paths-ignore` lì sarebbe una trappola: il
+  ruleset pretende il check, e un job saltato non riporta *nessuno* stato — quindi una PR che l'ha
+  saltato resta appesa per sempre su «Expected — Waiting for status» invece di fallire.
 - **Il ruleset imposta `strict_required_status_checks_policy: true`**: un branch deve essere
   aggiornato con `main` prima di poter essere mergiato. Senza, due PR verdi ognuna contro un `main`
   più vecchio atterrano entrambe e lasciano `main` rosso sulla loro combinazione. Il costo è un
@@ -307,7 +313,8 @@ gira sempre.
 1. i default `is:inline` del Consent Mode — tutte e quattro le chiavi `denied`, più
    `wait_for_update: 500`, `ads_data_redaction` e `url_passthrough`. Deve essere la prima cosa che
    tocca `dataLayer`, altrimenti un tag può accodarsi prima dei default e girare senza restrizioni;
-2. il blocco di configurazione inline, che pubblica gli id su `window`;
+2. il blocco di configurazione inline, che pubblica gli id su `window`, con l'id di policy della
+   lingua della pagina (`src/lib/legal/policy-id.ts`);
 3. gli script a modulo, che registrano `bootstrapAnalytics()` sul gate e poi avviano il CMP. Il
    container GTM viene appeso **dentro** `onConsent('measurement')`, mai prima.
 
@@ -391,14 +398,15 @@ rifiuto, e i rifiuti che compaiono solo lì.
 ## Ricostruire le pagine legali dopo una modifica alle policy
 
 Le policy di privacy e cookie si scaricano da iubenda **in fase di build**
-(`src/lib/legal/documents.ts`, pagine prerenderizzate). Una modifica fatta nel pannello iubenda è
+(`src/lib/legal/documents.ts`, pagine prerenderizzate), ognuna con l'id di policy della lingua della
+pagina (`src/lib/legal/policy-id.ts`). Una modifica fatta nel pannello iubenda è
 quindi invisibile al sito vivo finché qualcuno non rideploya, e niente avverte nessuno che i due sono
 andati alla deriva.
 
 - Si pubblica la modifica su iubenda, poi si lancia un deploy di produzione (Actions → Deploy → *Run
   workflow*, senza bisogno di toccare il codice).
-- **[HARD] Configurato significa obbligatorio.** Senza un id di policy le pagine dichiarano che il
-  documento non è disponibile — è il default del template, e di proposito non è prosa legale
+- **[HARD] Configurato significa obbligatorio.** Senza un id di policy per la loro lingua le pagine
+  dichiarano che il documento non è disponibile — è il default del template, e di proposito non è prosa legale
   segnaposto, che su una pagina viva si legge come una policy vera. Ma una volta che un id C'È, una
   build di produzione che non riesce a scaricare la policy **fallisce** invece di ricadere sul
   ripiego: quel ripiego porta un avviso visibile «bozza, non ancora rivista legalmente», e
@@ -495,8 +503,8 @@ spedire qualcosa che la strada della release avrebbe preso.
   build legge l'ambiente al momento del `vercel pull`, e lì un valore Sensitive non è disponibile
   (`BOTID_ENFORCE` è l'esempio vivo). Una variabile Sensitive non fallisce nemmeno rumorosamente:
   arriva come la stringa letterale `[SENSITIVE]`, ed è il motivo per cui gli id di iubenda si
-  validano come numerici prima dell'uso (`src/lib/analytics/tracking.ts`,
-  `src/lib/legal/documents.ts`) invece di essere infilati dentro l'URL di un'API. **`vercel env add`
+  validano come numerici prima dell'uso (`src/lib/analytics/tracking.ts` per il sito,
+  `src/lib/legal/policy-id.ts` per le policy) invece di essere infilati dentro l'URL di un'API. **`vercel env add`
   salva come Sensitive di default**, quindi si passa `--no-sensitive` e si conferma con un
   `vercel pull` prima di fidarsi, altrimenti la funzione deployata riceve `[SENSITIVE]` come chiave
   API.

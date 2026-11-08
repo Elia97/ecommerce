@@ -15,10 +15,12 @@
   --brand-700: oklch(0.371 0 0);
   --brand-900: oklch(0.205 0 0);
 
-  --red-500: oklch(0.637 0.237 27.325);
-  --red-600: oklch(0.577 0.245 27.325);
+  --red-400: oklch(0.704 0.191 22.216);
+  --red-700: oklch(0.505 0.213 27.518);
   --green-600: oklch(0.627 0.194 149.214);
   --green-700: oklch(0.527 0.154 150.069);
+  --amber-400: oklch(0.828 0.189 84.429);
+  --amber-700: oklch(0.555 0.163 48.998);
 
   --z-raised: 10;
   --z-dropdown: 20;
@@ -30,4 +32,53 @@
   --duration-slower: 0.6s;
 
   --radius: 0.625rem;
+
+  --control-font-family: inherit;
+  --control-font-weight: 500;
+  --control-text-transform: none;
+  --control-letter-spacing: inherit;
+
+  --control-sm-height: 2.25rem;
+  --control-sm-font-size: 0.875rem;
+  --control-md-height: 2.5rem;
+  --control-md-font-size: 0.875rem;
+  --control-lg-height: 2.75rem;
+  --control-lg-font-size: 1rem;
+  --control-xl-height: 3rem;
+  --control-xl-font-size: 1rem;
+  --control-outline-border-width: 1px;
+  --control-hover-mix: transparent 10%;
+  --control-ring-offset: 0px;
+
+  --label-font-family: inherit;
+  --label-font-weight: 500;
+  --label-text-transform: inherit;
+  --label-letter-spacing: inherit;
+
+  --badge-font-family: inherit;
+  --badge-font-weight: 500;
+  --badge-text-transform: inherit;
+  --badge-letter-spacing: inherit;
+
+  --heading-font-family: var(--font-display);
+  --heading-font-weight: 500;
+  --heading-minor-font-weight: 500;
+  --heading-text-transform: inherit;
+  --heading-letter-spacing: inherit;
+  --heading-display-letter-spacing: var(--tracking-tight);
+
+  --eyebrow-font-family: inherit;
+  --eyebrow-font-weight: 500;
+  --eyebrow-text-transform: inherit;
+  --eyebrow-letter-spacing: inherit;
+  --eyebrow-background: transparent;
+  --eyebrow-padding: 0;
+  --eyebrow-radius: 0;
+
+  --field-height: 2.5rem;
+  --field-font-size: 0.875rem;
+
+  --alert-border-width: 1px;
+  --alert-border-start-width: 1px;
+  --alert-radius: var(--radius);
 }

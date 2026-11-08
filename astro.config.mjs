@@ -6,9 +6,14 @@ import tailwindcss from '@tailwindcss/vite'
 import { defineConfig, envField } from 'astro/config'
 
 import { cspIntegration } from './src/lib/csp/integration'
-import { isExcludedFromSitemap } from './src/lib/seo/crawl-policy'
+import { customSitemapUrls, isExcludedFromSitemap } from './src/lib/seo/crawl-policy'
+import { sitemapAlternates } from './src/lib/seo/sitemap-alternates'
 import { createLastmodResolver, withLastmod } from './src/lib/seo/sitemap-lastmod'
 import { DEFAULT_LOCALE, SITE } from './src/lib/site'
+
+const sitemapLocales = { defaultLocale: DEFAULT_LOCALE, locales: { ...SITE.localeTags } }
+const alternates = sitemapAlternates(sitemapLocales)
+const lastmod = withLastmod(createLastmodResolver())
 
 export default defineConfig({
   site: SITE.url,
@@ -34,16 +39,17 @@ export default defineConfig({
     cspIntegration(),
     // Emette sitemap-index.xml, a cui src/pages/robots.txt.ts indirizza i crawler.
     sitemap({
-      filter: (page) => !isExcludedFromSitemap(page),
-      serialize: withLastmod(createLastmodResolver()),
-      i18n: {
-        defaultLocale: DEFAULT_LOCALE,
-        locales: { ...SITE.localeTags },
-      },
+      filter: alternates.keep((page) => !isExcludedFromSitemap(page)),
+      serialize: (item) => lastmod(alternates.link(item)),
+      customSitemaps: customSitemapUrls(SITE.url),
+      i18n: sitemapLocales,
     }),
   ],
   vite: {
     plugins: [tailwindcss()],
+    // Senza cssTarget Lightning CSS lascia le media query a intervallo, che Safari legge dalla 16.4.
+    // Safari e iOS 15.4 sono i primi a leggere `@layer`, su cui poggia il CSS di Tailwind.
+    build: { cssTarget: ['chrome111', 'edge111', 'firefox114', 'safari15.4', 'ios15.4'] },
   },
   env: {
     schema: {
@@ -88,6 +94,11 @@ export default defineConfig({
         optional: true,
       }),
       PUBLIC_IUBENDA_COOKIE_POLICY_ID: envField.string({
+        context: 'client',
+        access: 'public',
+        optional: true,
+      }),
+      PUBLIC_IUBENDA_COOKIE_POLICY_IDS: envField.string({
         context: 'client',
         access: 'public',
         optional: true,

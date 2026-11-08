@@ -1,13 +1,15 @@
+import { withOnlyListedPaths } from '@test/helpers/crawl-policy'
 import { describe, expect, it } from 'vitest'
 
 import {
+  CUSTOM_SITEMAP_PATHS,
   crawlPathname,
+  customSitemapUrls,
   isExcludedFromSitemap,
   isNoindexPath,
   matchesSubtree,
   NOINDEX_PATHS,
   ROBOTS_DISALLOWED_PATHS,
-  SITEMAP_EXCLUDED_PATHS,
 } from '@/lib/seo/crawl-policy'
 
 describe('crawlPathname', () => {
@@ -37,16 +39,6 @@ describe('crawlPathname', () => {
   })
 })
 
-describe('SITEMAP_EXCLUDED_PATHS', () => {
-  it('is the union of both lists', () => {
-    expect(SITEMAP_EXCLUDED_PATHS).toEqual([...ROBOTS_DISALLOWED_PATHS, ...NOINDEX_PATHS])
-  })
-
-  it('covers every robots-disallowed path', () => {
-    for (const path of ROBOTS_DISALLOWED_PATHS) expect(SITEMAP_EXCLUDED_PATHS).toContain(path)
-  })
-})
-
 describe('matchesSubtree', () => {
   const roots = ['/area-riservata', '/grazie']
 
@@ -72,20 +64,41 @@ describe('matchesSubtree', () => {
   it('matches nothing against an empty list', () => {
     expect(matchesSubtree('/qualsiasi', [])).toBe(false)
   })
+
+  it('con la radice / copre la home e ogni altro percorso', () => {
+    for (const path of ['/', '/about', '/blog/a-post', 'https://example.com/blog/a-post/']) {
+      expect(matchesSubtree(path, ['/']), path).toBe(true)
+    }
+  })
 })
 
 describe('isExcludedFromSitemap', () => {
   it('excludes every listed path, in both URL forms', () => {
-    for (const path of SITEMAP_EXCLUDED_PATHS) {
+    for (const path of [...ROBOTS_DISALLOWED_PATHS, ...NOINDEX_PATHS]) {
       expect(isExcludedFromSitemap(`https://example.com${path}`), path).toBe(true)
       expect(isExcludedFromSitemap(`https://example.com${path}/`), path).toBe(true)
     }
   })
 
-  it('lets through anything not listed', () => {
-    for (const url of ['https://example.com/', 'https://example.com/contatti', 'https://example.com/privacy/']) {
-      expect(isExcludedFromSitemap(url), url).toBe(matchesSubtree(crawlPathname(url), SITEMAP_EXCLUDED_PATHS))
-    }
+  describe('con una voce di prova in ciascuna lista', () => {
+    withOnlyListedPaths(ROBOTS_DISALLOWED_PATHS, '/private')
+    withOnlyListedPaths(NOINDEX_PATHS, '/en/privacy')
+
+    it('esclude le voci di tutte e due le liste, nelle due forme di URL', () => {
+      for (const url of ['https://example.com/private', 'https://example.com/en/privacy/']) {
+        expect(isExcludedFromSitemap(url), url).toBe(true)
+      }
+    })
+
+    it('lascia passare la home e un fratello che ha solo il prefisso in comune', () => {
+      for (const url of [
+        'https://example.com/',
+        'https://example.com/private-notes',
+        'https://example.com/en/privacy-notes/',
+      ]) {
+        expect(isExcludedFromSitemap(url), url).toBe(false)
+      }
+    })
   })
 })
 
@@ -99,5 +112,42 @@ describe('isNoindexPath', () => {
 
   it('leaves the home alone', () => {
     expect(isNoindexPath('/')).toBe(NOINDEX_PATHS.includes('/'))
+  })
+})
+
+describe('con / in una lista', () => {
+  const urls = ['https://example.com/', 'https://example.com/about', 'https://example.com/blog/a-post/']
+
+  describe('in NOINDEX_PATHS', () => {
+    withOnlyListedPaths(NOINDEX_PATHS, '/')
+
+    it('ogni percorso è noindex ed esce dalla sitemap', () => {
+      for (const url of urls) {
+        expect(isNoindexPath(url), url).toBe(true)
+        expect(isExcludedFromSitemap(url), url).toBe(true)
+      }
+    })
+  })
+
+  describe('in ROBOTS_DISALLOWED_PATHS', () => {
+    withOnlyListedPaths(ROBOTS_DISALLOWED_PATHS, '/')
+
+    it('nessun percorso resta nella sitemap, e nessuno diventa noindex', () => {
+      for (const url of urls) {
+        expect(isExcludedFromSitemap(url), url).toBe(true)
+        expect(isNoindexPath(url), url).toBe(false)
+      }
+    })
+  })
+})
+
+describe('customSitemapUrls', () => {
+  withOnlyListedPaths(CUSTOM_SITEMAP_PATHS, '/sitemap-products.xml', '/sitemap-blog.xml')
+
+  it('risolve ogni sitemap aggiunta sul sito che riceve, nello stesso ordine', () => {
+    expect(customSitemapUrls('https://example.test')).toEqual([
+      'https://example.test/sitemap-products.xml',
+      'https://example.test/sitemap-blog.xml',
+    ])
   })
 })

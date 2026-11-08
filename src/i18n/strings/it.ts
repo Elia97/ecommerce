@@ -64,6 +64,7 @@ export const it = {
   'forms.error.emailTooLong': 'L’indirizzo email è troppo lungo (massimo 254 caratteri).',
   'forms.error.messageTooLong': 'Il messaggio è troppo lungo (massimo 2000 caratteri).',
   'forms.error.consentRequired': 'Devi acconsentire al trattamento dei dati per inviare la richiesta.',
+  'forms.error.reload': 'La pagina non è aggiornata: ricaricala e invia di nuovo.',
 
   'forms.action.tooManyRequests': 'Troppe richieste, riprova tra poco.',
   'forms.action.securityCheckFailed': 'Verifica di sicurezza non superata, riprova.',
@@ -74,11 +75,14 @@ export const it = {
   'email.notificationSubject': 'Nuova richiesta',
   'email.nameLabel': 'Nome',
   'email.emailLabel': 'Email',
+  'email.localeLabel': 'Lingua',
   'email.messageLabel': 'Messaggio',
   'email.autoreplyHeading': 'Grazie, ti abbiamo letto.',
   'email.autoreplySubject': 'Abbiamo ricevuto la tua richiesta',
   'email.autoreplyBody':
     'Abbiamo ricevuto la tua richiesta e ti ricontatteremo al più presto. Per qualsiasi urgenza puoi scriverci a {email}.',
+
+  'site.description': '<DESCRIPTION>',
 
   'seo.defaultOgImageAlt': '<OG_IMAGE_ALT>',
 

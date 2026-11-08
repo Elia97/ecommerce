@@ -4,21 +4,26 @@ Convenzioni stabilite dallo scaffold di base (token di design, arredo di pagina)
 `rendering-performance.md` (ciclo di vita di animazioni e rivelazioni), `seo.md` (il contratto della
 head).
 
-## Token di design — tre livelli, una sola superficie di rebranding
+## Token di design
 
-- `src/styles/tokens.css` — primitive oklch grezze, la scala di impilamento e `--radius`. **È l'unico
-  file da toccare quando si fa il rebranding di un progetto**, e la rampa `--brand-*` è ciò che lo
-  rende vero alla lettera: `--primary`, `--accent` e `--ring` si appoggiano a lei e non a
-  `--neutral-*`, quindi dare a un cliente il suo colore non significa mai modificare `light.css` o
+- `src/styles/tokens.css` — primitive oklch grezze, la scala di impilamento e `--radius`. **È il
+  primo file da toccare quando si fa il rebranding di un progetto**, e di solito basta lui: la rampa
+  `--brand-*` regge `--primary`, `--accent` e `--ring`, che si appoggiano a lei e non a
+  `--neutral-*`, quindi dare a un cliente il suo colore non chiede di modificare `light.css` o
   `dark.css`. Arriva coi valori neutri, quindi l'aspetto di default è acromatico: si sostituiscono i
-  gradini, non i ruoli. I nomi dei token seguono il gradino della scala Tailwind che contengono
+  gradini, non i ruoli. Quando il design chiede un altro ruolo, come un primario che non è il
+  gradino scuro della rampa o un fondo bianco al posto del quasi bianco, un derivato sposta quel
+  ruolo su un altro gradino in `light.css` e `dark.css`, e le chiavi restano quelle. Non serve un
+  foglio a parte: `src/styles/contrast.test.ts` legge proprio quei due fogli, e verifica le coppie
+  anche dopo lo spostamento. I nomi dei token seguono il gradino della scala Tailwind che contengono
   (`--neutral-700` è il valore neutral-700 di Tailwind; un gradino etichettato male è un difetto,
   non una scelta di gusto).
-- **I ruoli di stato hanno due gradini, e così il loro primo piano.** `destructive` e `success` sono
-  ciascuno un gradino più scuro per il tema chiaro e uno più chiaro per lo scuro, perché nessun
-  valore singolo supera 4,5:1 su entrambi — e dato che lo stesso token è sia testo
+- **I ruoli di stato hanno due gradini, e così il loro primo piano.** `destructive`, `success` e
+  `warning` sono ciascuno un gradino più scuro per il tema chiaro e uno più chiaro per lo scuro,
+  perché nessun valore singolo supera 4,5:1 su entrambi — e dato che lo stesso token è sia testo
   (`text-destructive`) sia riempimento (`bg-destructive`), il tema scuro gira il suo primo piano su
-  uno scuro. `src/styles/contrast.test.ts` verifica ogni coppia.
+  uno scuro. I gradini di `destructive`, `red-700` e `red-400`, reggono 4,5:1 anche sul riempimento
+  dell'hover, che lo avvicina al fondo. `src/styles/contrast.test.ts` verifica ogni coppia.
 - **Le `z-*` vengono dalla scala in `tokens.css`**, non da un numero che è capitato di far
   funzionare: `--z-raised` < `--z-dropdown` < `--z-header` < `--z-overlay` < `--z-skip-link`. Un
   overlay nuovo si colloca leggendola, e si raggiunge attraverso le utility `z-*` nominate in
@@ -33,6 +38,136 @@ head).
   esente, perché è il default di una singola istanza e non un tempo del sistema. Un progetto che
   aggiunge altri gradini li nomina sugli stessi due assi; dichiararli in `@theme` invece che in
   `:root` genera anche la utility `ease-*` corrispondente, cosa che `:root` non fa.
+- **La tipografia di controlli, etichette e badge è un token come i colori.** `tokens.css` porta tre
+  ruoli, `--control-*` per `Button`, `--label-*` per `Label` di `field/` e `--badge-*` per `Badge`,
+  ciascuno con `font-family`, `font-weight`, `text-transform` e `letter-spacing`
+  (`--control-font-family`, `--label-letter-spacing` e così via). Le primitive li leggono attraverso
+  le utility `type-control`, `type-label` e `type-badge` di `typography.css`, e nella classe non
+  scrivono né la famiglia, né il peso, né il maiuscolo, né la spaziatura. I default rifanno la
+  tipografia di prima: il peso è 500 e il resto è `inherit`, cioè arriva dall'antenato, tranne il
+  maiuscolo dei controlli, che è `none` perché il browser non lo fa ereditare a un `<button>`; così
+  vale anche per `<Button as="a">`. Badge ed etichette partono dagli stessi valori, ma ciascuno nei
+  suoi token: cambiare `--label-*` non tocca i badge, e un design che li vuole diversi cambia
+  `--badge-*`. Una parte del sito che vuole bottoni, etichette o badge diversi riassegna i token su
+  un suo antenato, e cambia quello che sta sotto e niente fuori:
+
+  ```css
+  .back-office {
+    --control-font-family: var(--font-stack-condensed);
+    --control-text-transform: uppercase;
+    --control-letter-spacing: 0.04em;
+  }
+  ```
+
+  Dentro una parte riassegnata `inherit` non toglie il valore, riprende quello dell'antenato: per
+  tornare al testo normale si scrive `none` o `normal`. `src/styles/typography.test.ts` verifica che
+  ogni token esista, che le utility li leggano tutti e che le primitive non scrivano una tipografia
+  loro.
+- **Titoli ed eyebrow hanno la tipografia nei token, sugli stessi quattro assi.** `--heading-*` vale
+  per `Heading` e `--eyebrow-*` per `SectionLabel`. I titoli hanno tre fasce, ciascuna con la sua
+  utility:
+  - `type-heading-display` per `display`, con una spaziatura sua, `--heading-display-letter-spacing`,
+    che di default è quella di `tracking-tight`;
+  - `type-heading` per `h1` e `h2`;
+  - `type-heading-minor` per `h3` e `h4`, con un peso suo, `--heading-minor-font-weight`.
+
+  Ogni fascia scrive tutte e quattro le proprietà. Un'utility con una proprietà sola esce dopo le
+  classi di Tailwind, e vincerebbe su un `font-bold` passato da fuori. La famiglia di default è
+  `--font-display`, quella dei webfont registrati. I corpi restano nelle varianti di
+  `headingVariants`: sono responsivi, e un design che li cambia cambia la variante.
+
+  L'eyebrow prende il colore da `--eyebrow-color`, che sta in `light.css` e in `dark.css` perché
+  nomina `--primary`. Sopra una foto nessun colore del testo regge da solo, e lì si accende il fondo:
+  `--eyebrow-background`, `--eyebrow-padding` ed `--eyebrow-radius`, spenti di default. Misurato in
+  Chromium sopra la velatura dell'hero con immagine e una foto bianca, il primario della base regge
+  5,03:1, mentre un primario arancio scende sotto 2:1. Il segno davanti all'etichetta è lo slot
+  `marker` di `SectionLabel`, e il punto pulsante è il suo ripiego.
+
+  Un derivato con i titoli in maiuscolo, l'eyebrow condensato e il fondo sopra la foto riassegna:
+
+  ```css
+  :root {
+    --heading-font-weight: 700;
+    --heading-minor-font-weight: 600;
+    --heading-text-transform: uppercase;
+    --heading-display-letter-spacing: normal;
+    --eyebrow-font-family: var(--font-stack-condensed);
+    --eyebrow-text-transform: uppercase;
+    --eyebrow-letter-spacing: 0.12em;
+  }
+  .dark {
+    --eyebrow-background: var(--background);
+    --eyebrow-padding: 0.25rem 0.75rem;
+    --eyebrow-radius: 9999px;
+  }
+  ```
+
+  Il blocco `.dark` copre l'hero con immagine, che è un'isola scura. La barra al posto del punto si
+  passa nello slot: `<span slot="marker" aria-hidden="true" class="h-0.5 w-6 bg-current"></span>`.
+  `src/styles/typography.test.ts` e `src/components/ui/section-label.test.ts` verificano token,
+  utility e primitive.
+- **Anche misure, contorno, hover e focus dei controlli sono token.** `tokens.css` porta le misure:
+  - altezza e corpo di ogni taglia di `Button`, da `--control-sm-height` e `--control-sm-font-size`
+    fino a `--control-xl-*`;
+  - lo spessore del contorno di `outline`, `--control-outline-border-width`;
+  - l'hover di `default` e `destructive`, `--control-hover-mix`;
+  - il distacco dell'anello del focus sulle varianti piene, `--control-ring-offset`;
+  - altezza e corpo dei campi, `--field-height` e `--field-font-size`, per `Input`, `Textarea` e
+    `Select` con la sua lista.
+
+  Le primitive leggono questi token con le utility di `globals.css`:
+  - `control-sm` … `control-xl` per le taglie e per i loro gemelli `icon-*`;
+  - `field-text` per il corpo dei campi;
+  - `bg-hover-<ruolo>` per l'hover.
+
+  I token che nominano un ruolo stanno invece accanto ai ruoli, in `light.css` e in `dark.css`:
+  - il colore del contorno di `outline`, `--control-outline-border-color`, su `--border`;
+  - l'ombra del focus dei campi, `--field-focus-shadow`, che è l'anello di 2px su `--ring`;
+  - il colore del bordo al focus, `--field-focus-border-color`, su `--input`, quindi fermo.
+
+  Il tema scuro li ripete con lo stesso valore. Un token si risolve dove è dichiarato, e senza la
+  ripetizione un'isola `.dark`, come il banner, erediterebbe quello calcolato sul tema chiaro.
+
+  `--control-hover-mix` è il colore e la quota che l'hover mescola al riempimento: il default,
+  `transparent 10%`, è il riempimento al 90%, e `black 11%` lo scurisce. Sotto Safari 16.2 l'hover
+  non cambia il fondo, perché lì `color-mix()` non c'è (vedi `mix:` in § Modi di dire).
+
+  Chromium arrotonda per difetto lo spessore di un bordo, e 1,5px diventa 1px. Per questo il
+  contorno di `outline` è un bordo di 1px, e quello che supera il pixel lo dipinge un'ombra interna
+  dello stesso colore. Il focus dei campi ottiene lo stesso effetto con `--field-focus-shadow`.
+
+  Il distacco si dipinge con `--background`, come ogni offset di ring, e su una foto o un gradiente
+  fa da alone (§ Modi di dire). Per questo è spento, e si accende dove l'anello si confonde con il
+  riempimento.
+
+  Un progetto vuole il bottone grande più alto, il contorno nel colore del testo, l'hover che
+  scurisce e il focus dei campi sul bordo. Riassegna i token in un foglio che segue quelli dei temi:
+
+  ```css
+  :root {
+    --control-lg-height: 3.25rem;
+    --control-lg-font-size: 1.0625rem;
+    --control-outline-border-width: 1.5px;
+    --control-hover-mix: black 11%;
+    --control-ring-offset: 2px;
+    --field-height: 3rem;
+  }
+  :root,
+  .dark {
+    --control-outline-border-color: var(--foreground);
+    --field-focus-shadow: inset 0 0 0 0.5px var(--foreground);
+    --field-focus-border-color: var(--foreground);
+  }
+  .dark {
+    --control-hover-mix: white 10%;
+  }
+  ```
+
+  L'ultimo blocco c'è perché, dove il primo piano è scuro, la miscela col nero abbassa il contrasto
+  dell'hover. `src/styles/controls.test.ts` verifica tre cose:
+  - che ogni token stia nel suo foglio;
+  - che le utility li leggano;
+  - che le primitive non scrivano misure, hover o focus loro.
 - `src/styles/light.css` e `dark.css` — la mappatura dei ruoli semantici (nomi shadcn:
   `--background`, `--primary`, `--destructive`, …). **Queste chiavi non si rinominano mai**: i
   componenti e le utility le danno per assodate. Il tema scuro sovrascrive le stesse chiavi sotto
@@ -40,6 +175,8 @@ head).
 - `src/styles/globals.css` — l'orchestratore: la catena di `@import`, `@custom-variant dark` (nella
   forma ufficiale v4 `&:where(.dark, .dark *)`), il rimappaggio `@theme inline` verso le utility, il
   layer di base e il CSS delle animazioni.
+- `src/styles/typography.css` — le utility `type-*` dei ruoli tipografici, ciascuna sui quattro
+  token del suo ruolo in `tokens.css`. La importa `globals.css`.
 
 I token dei gradienti seguono la stessa logica di livello — il livello È la decisione sul tema. Un
 gradiente che deve reagire al tema vive in `light.css` e `dark.css` con una sovrascrittura per lo
@@ -93,7 +230,9 @@ compositi, il contratto deve vivere in un test unitario che calcola luminanza re
   lo sfondo fuori.
 - **Le coppie di token piatti quel test ce l'hanno già**: `src/styles/contrast.test.ts` legge
   `tokens.css`, `light.css` e `dark.css` e verifica ogni coppia primo piano/sfondo a 4,5:1 e ogni
-  confine di controllo a 3:1, in entrambi i temi. Un rebranding che ne porta una sotto il pavimento
+  confine di controllo a 3:1, in entrambi i temi. Verifica anche il primo piano di `default` e
+  `destructive` sul riempimento dell'hover, mescolato con `--control-hover-mix` e composto sul fondo
+  e sulla card come lo compone il browser. Un rebranding che ne porta una sotto il pavimento
   ci fallisce. Due conseguenze da conoscere prima di «riordinarli» rimettendoli insieme: `--border`
   e `--input` sono token diversi di proposito (un divisorio contro il confine di un controllo), e
   `--destructive` ha bisogno di un gradino più chiaro nel tema scuro **con il primo piano girato su
@@ -106,6 +245,10 @@ compositi, il contratto deve vivere in un test unitario che calcola luminanza re
   l'effetto, e un token pieno lo cancellerebbe.
 
 ## Contenuti dell'arredo
+
+Header e footer arrivano a `main.astro` da `src/components/layout/chrome.ts`, il modulo che un
+template derivato riscrive con i suoi (`docs/ARCHITECTURE.md` § I punti di aggancio dei template
+derivati).
 
 La struttura di header, footer e skip-link viene da `src/lib/site.ts` (`SITE`): nav, CTA, link
 legali, social. I testi NON stanno lì: le voci portano chiavi di dizionario i18n risolte tramite
@@ -134,9 +277,9 @@ apre il pannello della CMP, non porta a una pagina.
   nello spazio vuoto e mostra lo sfondo vero; un offset di ring deve indovinare un colore di sfondo
   che il componente non può conoscere, e lo sbaglia nel momento in cui il controllo finisce su un
   gradiente o su una fascia colorata. `.focus-ring` (`globals.css`) è la utility basata su contorno
-  per i focusabili personalizzati. Le primitive tengono `focus-visible:ring-2 ring-ring` perché lì
-  lo stile di focus funge anche da alone attorno al bordo del campo: è un uso legittimo, non un
-  residuo.
+  per i focusabili personalizzati. Le primitive tengono un anello, `focus-visible:ring-2 ring-ring`
+  nei bottoni e `--field-focus-shadow` nei campi, perché lì lo stile di focus funge anche da alone
+  attorno al bordo del campo: è un uso legittimo, non un residuo.
 - Proprietà logiche sull'asse inline (`start-4`, `ms-*`): il template è pronto per l'i18n e deve
   sopravvivere a una lingua da destra a sinistra.
 - `overflow-wrap: anywhere`, non `break-word`, quando una parola lunga non deve far esplodere una
@@ -147,6 +290,22 @@ apre il pannello della CMP, non porta a una pagina.
 - Nomi di utility attuali: `backdrop-blur-sm` (il `backdrop-blur` nudo è l'alias di compatibilità v3,
   deprecato).
 - Le utility numeriche sono dinamiche in v4 (`z-100` compila senza configurazione).
+- **Una tinta di sfondo sotto il 50% su un ruolo si scrive con `mix:`**, come
+  `mix:bg-foreground/10`. I ruoli puntano a variabili che il tema scuro ridefinisce, quindi dove
+  `color-mix()` manca, sotto Safari 16.2, Tailwind ripiega sul ruolo pieno: il fondo al 10% di
+  `foreground` diventa il colore del testo. Dentro `mix:` la regola sta in `@supports`, e lì la tinta
+  sparisce; dal 50% in su il pieno è l'approssimazione giusta. Le regole `mix:` escono dopo ogni variante di
+  Tailwind e dopo le classi senza variante, quindi uno stato che deve restare pieno esclude la tinta
+  (`not-aria-pressed:hover:mix:…`); per la stessa ragione una classe di sfondo passata da fuori a
+  una primitiva non la batte, e tailwind-merge non la toglie: si passa anche con `mix:` davanti. Una
+  tinta sotto il 50% senza `mix:` fa fallire `src/styles/surface-tints.test.ts`.
+- **Le classi vengono solo da `src/`**: `globals.css` importa Tailwind con `source("..")`. Senza, il
+  rilevamento automatico legge ogni file che git non ignora, e le parole delle guide, di `CLAUDE.md`
+  o di `astro.config.mjs` diventano regole del CSS costruito che nessun componente usa. Una classe
+  che vive in un file fuori da `src/` si dichiara con `@source` in `globals.css`. Dentro `src/`
+  restano fuori, con `@source not`, i test `*.test.ts`, che citano classi che nessun elemento usa, e
+  `src/assets`, dove i comandi dei tracciati SVG si leggerebbero come utility: una classe scritta
+  dentro un file di `src/assets` non arriva al CSS, e va sul componente che lo rende.
 
 ## Pattern di accessibilità nell'arredo
 
@@ -168,7 +327,9 @@ apre il pannello della CMP, non porta a una pagina.
 - **Il selettore di lingua** (`src/components/layout/language-switcher.astro`) sta nell'header e
   nella nav mobile, e compare solo quando la pagina esiste in almeno due lingue. La lingua corrente
   è testo con `aria-current="true"`, le altre sono link con `lang` e `hreflang`, e ogni nome è
-  scritto nella lingua che nomina (`localeName()` in `src/i18n/locales.ts`).
+  scritto nella lingua che nomina (`localeName()` in `src/i18n/locales.ts`). Una pagina che tiene
+  fuori dal prefetch le sue versioni nelle altre lingue passa `languagePrefetch={false}` a
+  `MainLayout`, che lo porta ai due selettori come `data-astro-prefetch="false"` su ogni link.
 - I glifi delle icone sono `aria-hidden` con l'etichetta sul controllo; il selettore di variazione
   testuale (`&#xFE0E;`) va sui codepoint che WebKit renderebbe come emoji.
 - Mattoni per gli overlay (per menu e dialog che un progetto aggiunge):
@@ -195,6 +356,15 @@ apre il pannello della CMP, non porta a una pagina.
   `[data-astro-transition-persist]`, e il template non ne ha, quindi senza questo ogni navigazione
   butta il focus su `<body>` (WCAG 2.4.3). L'eccezione per l'hash e il motivo per cui non usa
   `createMotionBinding` sono documentati accanto al binder.
+- **Due parti di uno stesso nome si separano con `{' '}`.** `compressHTML` toglie lo spazio che
+  contiene un a capo, quindi due `<span>` su righe diverse dentro un link, un bottone o un
+  `<summary>` danno un nome attaccato, «Ordina perIn evidenza», anche se a schermo le separa un `gap`.
+- **Un elenco con un nome porta `role="list"`.** WebKit toglie il ruolo agli elenchi con
+  `list-style: none`, che il preflight di Tailwind dà a ogni `<ul>` e `<ol>`, e con il ruolo se ne va
+  anche il nome di `aria-label` o `aria-labelledby`.
+- **Radio e checkbox native non prendono `focus-ring`.** Il suo `outline` trasparente c'è sempre, e
+  con i contrasti forzati diventa un riquadro fisso attorno al controllo; l'anello di focus del
+  browser basta, come in `contact-consent-field.astro`.
 
 ## Scorrimento morbido (quando un progetto lo aggiunge)
 
@@ -291,21 +461,32 @@ tailwind-merge): la forma dell'API di shadcn senza il runtime React o Radix.
 - I titoli di pagina e di sezione sono `<Heading as size>`, mai un `<h1>`…`<h6>` con classi
   tipografiche scritte a mano, e i template dei generatori emettono quella forma: `as` dà il livello
   nel documento, `size` la taglia nella scala. Il colore non sta nelle varianti e si eredita, e una
-  taglia che manca diventa una variante di `headingVariants`. I documenti iubenda arrivano da
+  taglia che manca diventa una variante di `headingVariants`. Famiglia, peso, maiuscolo e spaziatura
+  vengono dai token di § Token di design, i corpi dalle varianti. I documenti iubenda arrivano da
   `set:html` e non possono usare il componente: `src/components/legal/legal-doc.astro` dà ai loro
   `h1` e `h2` le classi delle taglie `h1` e `h3`, e `src/components/legal/legal-doc.test.ts`
   fallisce se le due divergono.
+- `SectionLabel` è l'eyebrow sopra un titolo. Tipografia, colore e fondo vengono dai token di
+  § Token di design, e il segno davanti all'etichetta si cambia con lo slot `marker`.
 - Le dimensioni dei bottoni sono una sola scala a taglie, `sm/md/lg/xl` più i gemelli quadrati
   `icon-*` (`md` è il default, e non esiste una chiave `default` per la dimensione; i nomi delle
-  varianti invece il `default` di shadcn lo mantengono). Oltre l'insieme shadcn: `variant="soft"` è
-  un controllo riempito a bassa enfasi (solo token semantici, NESSUN colore di testo incorporato —
-  un'icona o un glifo social eredita `currentColor`), e un asse `shape` (`default`/`pill`) cambia
-  solo il raggio della scatola (`pill` è `rounded-full`).
+  varianti invece il `default` di shadcn lo mantengono). Altezza e corpo di ogni taglia vengono dai
+  token (§ Token di design), e un gemello `icon-*` ha per lato l'altezza della sua taglia. Oltre
+  l'insieme shadcn: `variant="soft"` è un controllo riempito a bassa enfasi (solo token semantici,
+  NESSUN colore di testo incorporato — un'icona o un glifo social eredita `currentColor`), e un asse
+  `shape` (`default`/`pill`) cambia solo il raggio della scatola (`pill` è `rounded-full`).
+- Ogni variante di `Button` porta `border border-transparent`, tranne `outline`, che ha il suo
+  bordo, e `link`. Con i contrasti forzati il browser toglie il fondo dell'autore e ridipinge il
+  bordo con il colore del testo, così un bottone pieno, o un `ghost` dell'header, resta una scatola
+  invece di diventare testo. Il bordo sta dentro l'altezza della taglia e allarga di 2 px solo i
+  bottoni di testo; lo presidia `src/styles/controls.test.ts`.
 - I campi di form compongono la famiglia `Field` (`ui/field/`: `Field`, `FieldLabel`, `FieldContent`
   e `FieldError`, con orientamento verticale o orizzontale) attorno ai controlli piatti
   (`input.astro`, `textarea.astro`, `select.astro`). `FieldError` è l'unica parte con un
   comportamento attaccato: il suo contratto e il test che lo presidia stanno in `forms-email.md` §
-  La superficie di validazione.
+  La superficie di validazione. `FieldLabel` è flex: un'etichetta che è una frase con un link, come
+  quella del consenso, gli passa `block`, e lo spazio prima del link si scrive `{' '}`, perché
+  `compressHTML` toglie quello fra un'espressione e un tag anche sulla stessa riga.
 - `Alert` non porta nessun `role` di suo. `role="alert"` è una live region assertiva: interrompe
   quello che lo screen reader sta dicendo, e su un avviso presente al caricamento alcuni lo
   annunciano prima del titolo della pagina. Si passa `role="alert"` per un errore che compare in
@@ -313,10 +494,31 @@ tailwind-merge): la forma dell'API di shadcn senza il runtime React o Radix.
   per il contenuto statico. Il ruolo va su un elemento che è già nella pagina quando il messaggio
   cambia, come i paragrafi di esito del form (`forms-email.md` § Convenzioni dell'interfaccia dei
   form).
+- `Alert` ha cinque varianti. `default` e `muted` sono avvisi neutri; `destructive`, `success` e
+  `warning` sono messaggi di stato con un disegno solo: fondo `muted`, testo nel colore normale,
+  bordo e icona nel colore dello stato. Anche `AlertDescription`, che altrove è `muted-foreground`,
+  lì passa al colore normale, perché su `muted` quel grigio non regge 4,5:1 nel tema chiaro. Un'icona
+  messa come primo figlio prende una colonna sua, accanto a titolo e descrizione. La forma viene da
+  tre token di `tokens.css`, letti dalla utility `alert-shape`: `--alert-border-width` per i lati,
+  `--alert-border-start-width` per il lato iniziale e `--alert-radius`. I default rifanno il bordo
+  pieno e il raggio di sempre, e `muted` tiene il suo raggio di 2px più piccolo. Un messaggio con la
+  sola barra sul lato iniziale si ottiene con tre righe:
+
+  ```css
+  :root {
+    --alert-border-width: 0;
+    --alert-border-start-width: 3px;
+    --alert-radius: 0;
+  }
+  ```
+
+  `src/styles/contrast.test.ts` verifica testo, bordo e icona delle varianti di stato sul loro fondo.
 - `Breadcrumb` (`ui/breadcrumb/`) rende un percorso di voci `{ name, url }`, le stesse che
   `buildBreadcrumbList()` trasforma in JSON-LD: la pagina costruisce l'elenco una volta e lo passa a
   entrambi. È una `<nav>` con l'etichetta del dizionario e un `<ol>`; ogni voce è un link, l'ultima
-  porta `aria-current="page"`, e i separatori sono icone `aria-hidden`.
+  porta `aria-current="page"`, e i separatori sono icone `aria-hidden`. Con `prefetch={false}` ogni
+  link porta `data-astro-prefetch="false"`, che Astro legge solo sul link e non su un antenato: serve
+  a una parte del sito che tiene fuori dal prefetch le sue pagine rese a richiesta.
 - `Select` è la primitiva di riferimento per il miglioramento progressivo: il `<select>` nativo si
   rende per primo e resta la fonte di verità verso il form; lo strato di script
   (`select-behavior.ts`) inserisce un trigger e una listbox stilati (focus rotante,
@@ -330,6 +532,15 @@ tailwind-merge): la forma dell'API di shadcn senza il runtime React o Radix.
   `astro:page-load`. Una radice aggiunta dopo, come una riga nuova di una griglia, resta il
   `<select>` nativo finché non la si passa a `setupSelect(root)` di `select-behavior.ts`. Una radice
   già attiva viene saltata, e la pulizia su `astro:before-swap` copre anche quelle attivate così.
+- Il trigger di `Select` è un `<button>` con `role="combobox"`, lo schema «select-only combobox»
+  delle APG. Prende il nome dalla `<label for>` oppure da `aria-label` o `aria-labelledby`, che
+  all'attivazione passano dal `<select>` nativo al trigger insieme a `id` e `aria-describedby`.
+  Espone come valore il testo che mostra, e `aria-required` del nativo.
+- In un form senza `novalidate`, un `Select` obbligatorio rimasto vuoto non può avere il fumetto del
+  browser, perché il nativo è nascosto. All'invio il trigger prende `aria-invalid`, con il bordo
+  `--destructive`, e prende il focus se è il primo campo non valido (`select-validity.ts`). Un
+  messaggio scritto resta compito degli slot d'errore di un form `novalidate`, che segnano il
+  trigger e gli portano il focus allo stesso modo (`forms-email.md` § La superficie di validazione).
 - Le icone vengono da `@lucide/astro` (SVG in fase di build, zero JS lato client): `stroke-width={1}`
   di default, dimensione con Tailwind (`size-4`, `size-5`), `aria-hidden` per default e l'etichetta
   accessibile sul controllo.

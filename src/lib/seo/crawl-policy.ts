@@ -1,19 +1,11 @@
-// Letto da src/pages/robots.txt.ts, dal filtro sitemap in astro.config.mjs e da
-// src/middleware.ts.
+// Letto da src/pages/robots.txt.ts, dalla sitemap in astro.config.mjs, da
+// src/components/head/seo.ts e da src/middleware.ts.
 
-// [HARD] Senza import: astro.config.mjs si carica prima che Vite risolva l'alias `@/`, quindi
-// da lì sono raggiungibili solo i moduli che non importano niente.
+// [HARD] astro.config.mjs carica questo modulo prima che Vite risolva l'alias `@/`: qui e nei
+// moduli che importa si importa solo per percorso relativo.
+import { CUSTOM_SITEMAP_PATHS, NOINDEX_PATHS, ROBOTS_DISALLOWED_PATHS } from './crawl-paths'
 
-/** Una voce di sitemap per un URL bloccato da robots è un avviso in Search Console, quindi
- *  questi restano fuori anche dalla sitemap. */
-export const ROBOTS_DISALLOWED_PATHS: readonly string[] = []
-
-/** Anche src/middleware.ts legge questa lista, ma arriva solo alle risposte SSR non HTML: su
- *  una pagina prerenderizzata a portare il segnale è il meta `noindex` del layout. */
-export const NOINDEX_PATHS: readonly string[] = []
-
-/** @astrojs/sitemap scarta da sé le pagine di stato, quindi `/404` e `/500` non ci sono. */
-export const SITEMAP_EXCLUDED_PATHS: readonly string[] = [...ROBOTS_DISALLOWED_PATHS, ...NOINDEX_PATHS]
+export { CUSTOM_SITEMAP_PATHS, NOINDEX_PATHS, ROBOTS_DISALLOWED_PATHS }
 
 /** @astrojs/sitemap consegna le voci assolute e con lo slash finale nonostante
  *  `trailingSlash: 'never'`. */
@@ -26,13 +18,20 @@ export function crawlPathname(url: string): string {
  *  `/area-riservata/documenti`, e quando non lo fa non fallisce niente. */
 export function matchesSubtree(pathname: string, roots: readonly string[]): boolean {
   const path = crawlPathname(pathname)
-  return roots.some((root) => path === root || path.startsWith(`${root}/`))
+  return roots.some((root) => root === '/' || path === root || path.startsWith(`${root}/`))
 }
 
+/** Un URL della sitemap bloccato da robots è un avviso in Search Console. @astrojs/sitemap scarta
+ *  da sé le pagine di stato, quindi `/404` e `/500` non ci sono. */
 export function isExcludedFromSitemap(url: string): boolean {
-  return matchesSubtree(url, SITEMAP_EXCLUDED_PATHS)
+  return matchesSubtree(url, ROBOTS_DISALLOWED_PATHS) || isNoindexPath(url)
 }
 
 export function isNoindexPath(pathname: string): boolean {
   return matchesSubtree(pathname, NOINDEX_PATHS)
+}
+
+/** `customSitemaps` di @astrojs/sitemap vuole URL assoluti: il suo schema li valida con `z.url()`. */
+export function customSitemapUrls(site: string): string[] {
+  return CUSTOM_SITEMAP_PATHS.map((path) => new URL(path, site).href)
 }

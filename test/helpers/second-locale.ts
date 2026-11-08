@@ -11,6 +11,20 @@ export const translatedSegments = {
   SEGMENTS_BY_LOCALE: { [SECOND_LOCALE]: { contatti: 'contact' } },
 }
 
+export const translatedSlugPaths = {
+  [DEFAULT_LOCALE]: '/prodotto/cintura-ipsc',
+  [SECOND_LOCALE]: '/product/ipsc-belt',
+}
+
+export const SECOND_LOCALE_DESCRIPTION = 'A short description of the site, in English'
+
+export function withSecondLocaleDictionary(ui: typeof import('@/i18n/ui')) {
+  const base = ui.dictionaries[DEFAULT_LOCALE]
+  const marked = Object.fromEntries(Object.entries(base).map(([key, text]) => [key, `[${SECOND_LOCALE}] ${text}`]))
+  const translated = { ...(marked as typeof base), 'site.description': SECOND_LOCALE_DESCRIPTION }
+  return { ...ui, dictionaries: { ...ui.dictionaries, [SECOND_LOCALE]: translated } }
+}
+
 export const twoLocaleManifest = {
   i18n: {
     strategy: 'pathname-prefix-other-locales' as const,
