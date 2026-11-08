@@ -38,7 +38,9 @@ commerciale: brief, decisioni, stima e verbali stanno nel sistema; qui si scrive
 
 1. Su GitHub, da `Elia97/ecommerce`, **«Use this template» → «Create a new repository»**, privato,
    sotto il tuo account e non nell'organizzazione del committente (non `git clone`, che si
-   trascinerebbe dietro la storia git e i tag di release di questo repo).
+   trascinerebbe dietro la storia git e i tag di release di questo repo). L'account deve avere
+   GitHub Pro prima del passo 8: con GitHub Free un repository privato non ha i ruleset, e senza
+   quello su `main` la PR obbligatoria e il check `ci` restano una convenzione.
 2. Clonalo nella cartella del progetto del sistema (`progetti/<id>/repo/`), poi `corepack enable &&
    pnpm install`: installa dipendenze e hook git (lefthook).
 3. **Metti dependabot in pausa**. Il primo giro è già partito: «Use this template» crea il commit
@@ -63,9 +65,11 @@ commerciale: brief, decisioni, stima e verbali stanno nel sistema; qui si scrive
 
 ### Al cancello
 
-6. Se il committente è un'agenzia, trasferisci il repo alla sua organizzazione, aggiorna `origin`
+6. Se il committente è un'agenzia e la sua organizzazione ha i ruleset sui repository privati
+   (GitHub Team o Enterprise Cloud), trasferisci il repo all'organizzazione, aggiorna `origin`
    (`git remote set-url origin …`) e verifica che l'app Vercel sia installata sull'organizzazione
-   di destinazione, altrimenti il collegamento git del progetto si rompe.
+   di destinazione, altrimenti il collegamento git del progetto si rompe. Con un'organizzazione su
+   GitHub Free il repo resta sul tuo account, che ha GitHub Pro dal passo 1.
 7. Riallinea lo scaffold al template corrente, che nel frattempo è cambiato: `git remote add
    template git@github.com:Elia97/ecommerce.git`, `git fetch template`, `git diff HEAD
    template/main -- ':!docs' ':!README.md' ':!.github/dependabot.yml'`. Le storie sono scorrelate:
@@ -74,8 +78,11 @@ commerciale: brief, decisioni, stima e verbali stanno nel sistema; qui si scrive
 8. `bash scripts/bootstrap-github.sh` da dentro il clone (serve `gh` autenticato): label di
    dependabot, merge solo in squash, permessi Actions per release-please, e il ruleset su `main` (PR
    obbligatoria, `ci` come check richiesto, branch aggiornato prima del merge, nessun push diretto).
-   Si può rilanciare quando si vuole: ogni passo è idempotente. Non ricorrere ad `ADMIN_BYPASS=1`:
-   su un progetto cliente rimette `ci` al rango di suggerimento.
+   Su un repository privato il ruleset chiede GitHub Pro sull'account, o GitHub Team
+   sull'organizzazione (passi 1 e 6): senza, lo script si ferma al passo 4/4, dice che cosa manca ed
+   esce con errore. Si può rilanciare quando si vuole, anche dopo l'upgrade: ogni passo è
+   idempotente. Non ricorrere ad `ADMIN_BYPASS=1`: su un progetto cliente rimette `ci` al rango di
+   suggerimento.
 9. Collega il repo a un progetto Vercel. L'*Ignored Build Step* non si imposta a mano: lo dichiara
    `ignoreCommand` in `vercel.json`, ed è quello che tiene la produzione legata a un tag di release
    invece che a ogni push. Se il progetto Vercel ce l'ha già impostato dalla dashboard, svuotalo:
@@ -105,16 +112,20 @@ La superficie completa, in un posto solo — la milestone `foundations` la distr
 
 - `package.json#name` (e `release-please-config.json`): trapela nel changelog che release-please
   genera, quindi deve corrispondere al progetto nuovo e non restare `ecommerce`;
-- `src/lib/site.ts`: nome, url, descrizione, voci di nav, CTA e legali (la chrome si rende da qui, e
-  le voci portano chiavi i18n, non testo), più i profili di `SITE.social`, che arriva vuoto: ogni
-  profilo aggiunto finisce nel footer e nel `sameAs` del JSON-LD;
+- `src/lib/site.ts`: nome, url, voci di nav, CTA e legali (la chrome si rende da qui, e le voci
+  portano chiavi i18n, non testo), più i profili di `SITE.social`, che arriva vuoto: ogni profilo
+  aggiunto finisce nel footer e nel `sameAs` del JSON-LD;
+- `site.description` in `src/i18n/strings/it.ts`: la descrizione del sito, sotto il nome nel footer
+  e nella meta description della homepage. Sta nei dizionari perché si traduce con il resto della
+  chrome, e il manifest, che è uno per sito, prende quella della lingua di default;
 - `src/lib/company.ts`: il soggetto giuridico — ragione sociale, telefono (`phone` in E.164 e
   `phoneDisplay` nella forma che si legge), email, indirizzo e partita IVA, più il `logo`
   facoltativo, un file di `public/` su fondo chiaro. Si vedono nella riga legale del footer e nei
   recapiti di `/contatti`, e alimentano il JSON-LD `Organization` della homepage, con la partita IVA
   come `vatID`;
-- `src/styles/tokens.css`: l'UNICO file da toccare per il rebranding visivo (primitive oklch grezze;
-  i nomi semantici in `light.css` e `dark.css` restano);
+- `src/styles/tokens.css`: il file del rebranding visivo (primitive oklch grezze). In `light.css` e
+  `dark.css` le chiavi dei ruoli restano, e un valore si sposta su un altro gradino solo quando il
+  design chiede un altro ruolo (`docs/guides/ui-components.md` § Token di design);
 - `public/og-default.png`: si sostituisce il segnaposto (1200×630), e con lui le misure in
   `SITE.defaultOgImageSize` e l'alt `seo.defaultOgImageAlt` in `src/i18n/strings/it.ts`;
 - `public/favicon.svg` e `public/favicon.ico`: si sostituiscono entrambi, poi `pnpm gen:icons`
@@ -168,7 +179,10 @@ la CI, con `pnpm run check:links` sulla build.
   sotto).
 - **Unit test** (vitest e happy-dom): `pnpm test`, collegato a `pnpm run ci`. I moduli virtuali di
   Astro sono stubbati in `test/stubs/` (env, config, i18n), così la logica pura (head e seo, i18n,
-  rate-limit, email, fornitori) si testa in fretta. **La soglia del 100% vale su `src/`**, che è la
+  rate-limit, email, fornitori) si testa in fretta. I test girano a thread in due progetti di
+  vitest, e solo quelli che raccoglie `astroTests`, in `vitest.config.ts`, passano dai plugin di
+  Astro: un test che importa un `.astro`, anche dal container, sta accanto al componente o in
+  `src/layouts/`, `src/styles/` o `test/pages/`. **La soglia del 100% vale su `src/`**, che è la
   logica del prodotto: sotto ci sono i `.ts` più i due `.astro` che portano rami veri, elencati
   nell'`include` di `vitest.config.ts`, e la copertura non guarda altro. Ogni buco voluto porta un
   `v8 ignore` con la sua ragione. La soglia esiste per dare un senso al gate CRAP di `fallow audit`,
@@ -209,7 +223,10 @@ non carica nessun tag e non scrive nessun cookie non essenziale. Per accenderlo:
 1. Crea per il cliente il sito iubenda con la sua cookie policy, e il container GTM.
 2. Imposta `PUBLIC_GTM_ID`, `PUBLIC_IUBENDA_SITE_ID` e `PUBLIC_IUBENDA_COOKIE_POLICY_ID` — su Vercel
    come variabili **Plain**, mai Sensitive (una variabile Sensitive arriva alla build come la
-   stringa letterale `[SENSITIVE]`). Sono id pubblici che finiscono nel bundle, non segreti.
+   stringa letterale `[SENSITIVE]`). Sono id pubblici che finiscono nel bundle, non segreti. In un
+   sito con più lingue iubenda dà un id di policy per lingua: `PUBLIC_IUBENDA_COOKIE_POLICY_ID`
+   resta quello della lingua di default, e `PUBLIC_IUBENDA_COOKIE_POLICY_IDS` porta le altre come
+   coppie `lingua:id` separate da virgole, per esempio `en:12345678,de:87654321`.
 3. **La CSP non si tocca**: gli host di GTM e iubenda stanno già in `src/lib/csp/directives.ts`, da
    cui la policy si genera in fase di build, e `vercel.json` porta solo `frame-ancestors`. Un
    fornitore in più va in `directives.ts`, mai in `vercel.json`: `docs/guides/deploy-ops.md` §
@@ -217,8 +234,10 @@ non carica nessun tag e non scrive nessun cookie non essenziale. Per accenderlo:
 4. Verifica su una preview, accettando e rifiutando, con GA4 Realtime e la console aperti: prima del
    consenso a Google non deve arrivare niente, e nessuna richiesta deve essere bloccata dalla CSP.
 
-Lo stesso id di policy fa passare anche `/privacy` e `/cookie-policy` dalle loro bozze segnaposto ai
-documenti iubenda ospitati. Vengono scaricati in fase di build, quindi una policy modificata su
+L'id di policy di una lingua fa passare anche le sue `/privacy` e `/cookie-policy` dalle bozze
+segnaposto ai documenti iubenda ospitati, ed è quello che riceve il banner delle sue pagine; una
+lingua senza il suo id dice che il documento non è disponibile. I documenti vengono scaricati in
+fase di build, quindi una policy modificata su
 iubenda arriva sul sito solo al deploy successivo, e la procedura è in `docs/guides/deploy-ops.md`
 § Ricostruire le pagine legali dopo una modifica alle policy.
 
@@ -295,7 +314,11 @@ puramente additiva.
    default resta piatto, e i loader lo impongono).
 8. Pagine: rispecchia l'albero di default sotto `src/pages/<lingua>/…`;
    `getHomepageSections(Astro.currentLocale)` e `useTranslations(Astro.currentLocale)` risolvono già
-   per lingua.
+   per lingua. 404 e 500 restano fuori: Vercel serve sempre quelle della radice, e dichiarano già la
+   sola lingua di default.
+9. Consenso: con iubenda configurato, l'id di policy della lingua nuova va in
+   `PUBLIC_IUBENDA_COOKIE_POLICY_IDS` (§ Configurare consenso e analytics, sopra). Senza, le sue
+   pagine legali dicono che il documento non è disponibile.
 
 I link della chrome passano da `localizedHref(Astro.currentLocale, path)` (vedi header e footer),
 quindi nav e URL legali si localizzano senza toccare i componenti. Le CTA dei contenuti — i bottoni
@@ -305,7 +328,9 @@ i percorsi relativi e lascia come sono ancore, URL esterni, `mailto:` e `tel:`.
 Il selettore di lingua compare da solo nell'header e nella nav mobile quando una pagina esiste in
 almeno due lingue. Una pagina che non esiste in tutte dichiara le sue con la prop `locales` del
 layout, `<MainLayout locales={['it']}>`: alternate hreflang e selettore leggono la stessa lista, come
-spiega la politica degli URL in `docs/guides/seo.md`.
+spiega la politica degli URL in `docs/guides/seo.md`. Una pagina che esiste in una lingua ma non va
+indicizzata, come una legale non ancora tradotta, si elenca invece in `NOINDEX_PATHS`
+(`src/lib/seo/crawl-paths.ts`): che cosa ne segue lo dice `docs/guides/seo.md` § Sitemap e robots.
 
 ## Secret di release
 

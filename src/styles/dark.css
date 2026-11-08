@@ -18,14 +18,20 @@
   --accent: var(--brand-700);
   --accent-foreground: var(--neutral-50);
   /* Rosso più chiaro, e il primo piano gira con lui: `--destructive` è sia testo sia
-     riempimento, e il quasi bianco su questo rosso è solo 3,65:1. */
-  --destructive: var(--red-500);
+     riempimento, e il quasi bianco su questo rosso è solo 2,77:1. */
+  --destructive: var(--red-400);
   --destructive-foreground: var(--neutral-950);
   /* Verde più chiaro per la stessa ragione di destructive: leggibile su una card scura. */
   --success: var(--green-600);
+  --warning: var(--amber-400);
 
   /* Vedi la nota in light.css: un divisorio e il confine di un controllo sono due ruoli. */
   --border: var(--neutral-800);
   --input: var(--neutral-500);
   --ring: var(--brand-500);
+
+  --control-outline-border-color: var(--border);
+  --field-focus-border-color: var(--input);
+  --field-focus-shadow: 0 0 0 2px var(--ring);
+  --eyebrow-color: var(--primary);
 }

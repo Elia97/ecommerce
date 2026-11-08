@@ -45,6 +45,18 @@ Convenzioni stabilite dalla head centralizzata (`src/components/head/head.astro`
   la risolve `pageLocales()` in `src/i18n/locales.ts`, e la leggono sia gli alternate di
   `resolveHeadSeoMeta()` sia il selettore di lingua: una lingua che la configurazione non instrada
   ferma il build, e `x-default` esce solo se la pagina esiste nella lingua di default.
+- **Con gli slug tradotti la pagina passa a `locales` una mappa** dalla lingua al suo percorso,
+  scritto come per `localizedHref()`:
+  `<MainLayout locales={{ it: '/prodotto/cintura-ipsc', en: '/product/ipsc-belt' }}>`. Hreflang,
+  `x-default`, `og:locale:alternate` e selettore vanno su quei percorsi invece che sul percorso
+  rilocalizzato, le lingue della pagina sono le chiavi, e nella lingua corrente vale il canonical.
+- **Un percorso di `NOINDEX_PATHS` resta fuori dal gruppo delle lingue.** Le traduzioni non lo
+  annunciano, `x-default` non ci punta, e la pagina stessa non emette hreflang: Google ignora un
+  hreflang a cui l'altra pagina non risponde, e chiede che ogni versione elenchi anche sé stessa.
+  Lo decide `resolveHeadSeoMeta()` leggendo `src/lib/seo/crawl-policy.ts` (§ Sitemap e robots).
+  Restano gli `og:locale:alternate`, perché `noindex` dice che cosa indicizzare e non che cosa
+  condividere, e il selettore di lingua, che è navigazione: un `hreflang` su un `<a>` Google non lo
+  legge come annotazione.
 - Gli alternate `xhtml:link` di una sitemap si accoppiano **per percorso identico dopo il prefisso
   di lingua**, quindi con slug localizzati non si accoppiano mai. Con il routing localizzato
   l'hreflang che conta è quello nella `<head>`: la sitemap non rimedia.
@@ -127,8 +139,9 @@ o un riferimento compatto usato come `author`, `publisher` o `provider` — i no
 del browser — e viene reso una volta sola da `head.astro`.
 
 - **Il manifest si costruisce, non si scrive.** `src/lib/seo/manifest.ts` lo deriva da `SITE` (nome,
-  descrizione, lingua, colori) e `src/pages/site.webmanifest.ts` lo serve prerenderizzato, così
-  l'identità installata non può divergere da quella del sito.
+  lingua, colori) e dal dizionario della lingua di default (la descrizione, `site.description`), e
+  `src/pages/site.webmanifest.ts` lo serve prerenderizzato, così l'identità installata non può
+  divergere da quella del sito.
 - **`id`, `start_url` e `scope` sono fissati su `/`.** Cambiare `id` fa sì che i browser trattino il
   sito come un'altra applicazione: un'installazione esistente smette di aggiornarsi e il prompt
   ricompare.
@@ -153,8 +166,15 @@ del browser — e viene reso una volta sola da `head.astro`.
 
 - `@astrojs/sitemap` (in `astro.config.mjs`) emette `sitemap-index.xml` in fase di build: in
   sviluppo non viene mai servito. La sua mappa delle lingue rispecchia `SITE.localeTags`.
-- **`lastmod` viene dalla storia git.** La `serialize` del sitemap,
-  `withLastmod(createLastmodResolver())`, data ogni URL con l'ultimo commit fra i file che lo
+- **Gli alternate `xhtml:link` li calcola `src/lib/seo/sitemap-alternates.ts`, come la head.** Il
+  plugin da solo collega le versioni di una pagina solo se il percorso, tolto il prefisso della
+  lingua, è lo stesso: con `SEGMENTS_BY_LOCALE`, `/contatti` e `/en/contact` resterebbero slegate.
+  La `serialize` le ritrova con `canonicalizePath()` e `translatePath()` di
+  `src/i18n/route-segments.ts`, e solo fra le voci che il `filter` tiene. Una pagina che dichiara
+  per lingua un percorso suo, come uno slug tradotto, è collegata solo nella head, e la sitemap di
+  un catalogo le versioni le calcola da sé.
+- **`lastmod` viene dalla storia git.** Nella `serialize` della sitemap,
+  `withLastmod(createLastmodResolver())` data ogni URL con l'ultimo commit fra i file che lo
   producono, e `lastmodSources()` in `src/lib/seo/sitemap-lastmod.ts` dice quali sono: `/` è
   `src/pages/index.astro` più `src/content/homepage`, `/contatti` e `/termini` sono il loro `.astro`.
   Un progetto ci aggiunge le sue rotte con i file che le producono: una pagina di dettaglio porta il
@@ -168,7 +188,7 @@ del browser — e viene reso una volta sola da `head.astro`.
 - **Una sitemap di media vuole un endpoint suo.** L'hook `serialize` dell'integrazione non può
   emettere un namespace `<video:…>` o `<image:…>`: il suo tipo `SitemapItem` è un `Pick` di
   `url|lastmod|changefreq|priority|links` e nient'altro. Quella sitemap si emette da una rotta
-  propria e si aggancia con `customSitemaps`.
+  propria e si aggiunge all'indice con una voce di `CUSTOM_SITEMAP_PATHS`, come qui sotto.
 - **I campi degli schemi dei media portano i limiti della piattaforma, imposti in build.** Google
   taglia il `name` di un video a 100 caratteri e la `description` a 2048: quei limiti vanno nello
   schema Zod invece che in un troncamento al momento della serializzazione — far fallire la build è
@@ -176,21 +196,40 @@ del browser — e viene reso una volta sola da `head.astro`.
   sitemap che descrivono lo **stesso** insieme: si risolvono entrambi da una funzione sola, o
   finiscono per descrivere media diversi.
 - Nella sitemap finiscono solo le rotte **prerenderizzate**: le pagine indicizzabili restano
-  prerenderizzate (che è il default), oppure gli URL on-demand si elencano con `customPages`.
+  prerenderizzate (che è il default), oppure gli URL on-demand si elencano con `customPages`, che li
+  vuole già in build. Quando gli indirizzi vengono da un dato, come le schede di un catalogo, una
+  rotta del progetto emette la loro sitemap, e il suo percorso va in coda a `CUSTOM_SITEMAP_PATHS`
+  di `src/lib/seo/crawl-paths.ts`. `customSitemapUrls()` lo risolve su `SITE.url`, perché
+  `customSitemaps` vuole URL assoluti, e `sitemap-index.xml` lo elenca accanto alle sitemap generate.
 - `src/pages/robots.txt.ts` (prerenderizzato) indirizza i crawler alla sitemap e legge la sua lista
   di disallow da `crawl-policy.ts`: il controllo dell'indicizzazione per singola risposta NON sta lì
   (i crawler mettono in cache robots.txt).
 - **`src/lib/seo/crawl-policy.ts` è la fonte unica di verità** e alimenta `robots.txt`, il `filter`
-  della sitemap e il middleware. Due liste: `ROBOTS_DISALLOWED_PATHS` (bloccate al crawler, mai
-  scaricate) e `NOINDEX_PATHS` (scansionabili, tenute fuori dall'indice — la pagina deve comunque
-  passare `noindex` al layout: **è il meta tag a portare il segnale**, ed è l'unico meccanismo che
-  funziona su una pagina prerenderizzata). Entrambe alimentano `SITEMAP_EXCLUDED_PATHS`, entrambe
-  arrivano vuote, e la corrispondenza è per sottoalbero e deve restare tale — `/area-riservata`
-  copre `/area-riservata/documenti`. Una corrispondenza esatta lascerebbe indicizzabile ogni figlio
-  senza che niente fallisca, ed è il motivo per cui `matchesSubtree` porta una nota `[HARD]`.
-- Anche `X-Robots-Tag` da `src/middleware.ts` legge `NOINDEX_PATHS`, ma arriva soltanto a una
-  **risposta SSR non HTML** (un feed generato, un endpoint JSON) dove nessun meta tag può esistere.
-  Su una pagina prerenderizzata non gira.
+  della sitemap, la head e il middleware. Due liste, che stanno in `src/lib/seo/crawl-paths.ts`:
+  `ROBOTS_DISALLOWED_PATHS` (bloccate al crawler, mai scaricate) e `NOINDEX_PATHS` (scansionabili,
+  tenute fuori dall'indice). Escono
+  entrambe dalla sitemap, arrivano vuote, e la corrispondenza è per sottoalbero e deve restare tale
+  — `/area-riservata` copre `/area-riservata/documenti`. Una corrispondenza esatta lascerebbe
+  indicizzabile ogni figlio senza che niente fallisca, ed è il motivo per cui `matchesSubtree` porta
+  una nota `[HARD]`.
+- **`/` copre tutto il sito.** In `NOINDEX_PATHS` toglie dall'indice ogni pagina; in
+  `ROBOTS_DISALLOWED_PATHS` la blocca al crawler, e `robots.txt` scrive `Disallow: /` senza
+  `Allow: /`, che a parità di lunghezza vincerebbe (RFC 9309, §2.2.2): per questo
+  `pnpm run lhci:local`, che pretende `Allow: /`, in quello stato non parte. Nei due casi il `filter`
+  scarta ogni pagina e `@astrojs/sitemap` non scrive `sitemap-index.xml`, a cui `robots.txt` continua
+  a rimandare: il fumo di produzione la cerca, e un progetto in quello stato la toglie da
+  `smoke.nonHtmlRoutes` in `officina.config.ts`.
+- **Per togliere una pagina dall'indice basta la sua voce in `NOINDEX_PATHS`**: la pagina non passa
+  niente al layout. La head le dà `<meta name="robots" content="noindex, nofollow">`, l'unico
+  segnale che arriva a una pagina prerenderizzata, e nessuna pagina la annuncia con un hreflang
+  (§ Politica degli URL). Conta l'URL richiesto, `Astro.originPathname`: una pagina resa con una
+  rewrite, o con il fallback di i18n, risponde del suo URL e non di quello di destinazione. Il
+  `filter` della sitemap gira prima che si calcolino gli alternate `xhtml:link`, quindi la pagina non
+  compare nemmeno fra gli alternate delle altre voci.
+- Anche `src/middleware.ts` legge `NOINDEX_PATHS` e mette `X-Robots-Tag` su ogni risposta resa a
+  richiesta: su una pagina HTML si somma al meta, su una risposta non HTML (un feed generato, un
+  endpoint JSON), dove nessun meta può esistere, è l'unico segnale. Su una pagina prerenderizzata
+  non arriva, perché Astro scarta in build le sue intestazioni di risposta.
 - L'esclusione serve solo per le rotte che **vengono** costruite ma devono restare fuori
   dall'indice. Una rotta che in produzione `getStaticPaths` non enumera mai (per esempio una bozza
   tenuta fuori da un predicato di visibilità) non ha bisogno né dell'una né dell'altra: nella

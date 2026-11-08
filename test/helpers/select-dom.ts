@@ -8,7 +8,7 @@ function selectMarkup(id: string, required: boolean): string {
         <option value="consulenza">Consulenza</option>
         <option value="preventivo">Preventivo</option>
       </select>
-      <button type="button" data-select-trigger aria-haspopup="listbox" aria-expanded="false" class="hidden">
+      <button type="button" role="combobox" data-select-trigger aria-haspopup="listbox" aria-expanded="false" class="hidden">
         <span data-select-value></span>
       </button>
       <ul role="listbox" data-select-listbox class="hidden">
@@ -16,15 +16,23 @@ function selectMarkup(id: string, required: boolean): string {
         <li role="option" data-value="preventivo" aria-selected="false" tabindex="-1">Preventivo</li>
       </ul>
     </div>
-    <p id="${id}-error">Campo obbligatorio</p>`
+    <p id="${id}-error" data-field-error="${id}"></p>`
 }
 
 // Leggendo innerHTML, happy-dom ignora un attributo `selected` e riporta la prima opzione
 // abilitata, quindi il valore corrente si assegna a mano.
-export function renderSelect({ value = '', required = true } = {}): void {
-  document.body.innerHTML = selectMarkup('topic', required)
+function mount(html: string, value: string): void {
+  document.body.innerHTML = html
   const control = document.querySelector<HTMLSelectElement>('[data-select-native]')
   if (control) control.value = value
+}
+
+export function renderSelect({ value = '', required = true } = {}): void {
+  mount(selectMarkup('topic', required), value)
+}
+
+export function renderSelectInForm(before = ''): void {
+  mount(`<form>${before}${selectMarkup('topic', true)}</form>`, '')
 }
 
 export function appendSelectRoot(id: string): HTMLElement {
