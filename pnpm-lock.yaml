@@ -56,8 +56,8 @@ importers:
         specifier: ^21.2.4
         version: 21.2.4
       '@elia97/officina':
-        specifier: ^0.17.0
-        version: 0.17.0(@biomejs/biome@2.6.4)(@types/node@26.6.6)(sharp@0.35.5(@types/node@26.6.6))
+        specifier: ^0.19.0
+        version: 0.19.0(@biomejs/biome@2.6.4)(@types/node@26.6.6)(sharp@0.35.5(@types/node@26.6.6))
       '@playwright/test':
         specifier: ^1.64.1
         version: 1.64.1
@@ -446,8 +446,8 @@ packages:
     resolution: {integrity: sha512-aalGyl7dbB5PArRebDIX43ZvBlXrYm9uWzGJ26t+4SzJVPsOuvfILGGbw5X4yX7i50YEmJ8zvbiWnqH/AAnZqg==}
     engines: {node: '>=22'}
 
-  '@elia97/officina@0.17.0':
-    resolution: {integrity: sha512-dIZoK4tw5FL/Up/tUauVkUa7vDww9URpcMltORUz8FOLOUWEzvpALOzbGUPQRyka5nhE+0ftufYVia/3d5QjvA==}
+  '@elia97/officina@0.19.0':
+    resolution: {integrity: sha512-vS5644zElUiw+OCKI6eWuauE8RlTdse18eF+VH/n405iBx0bhKnywRngzFPK4lWyXVrf0iFaNT1FKFtPDr1aOg==}
     engines: {node: '>=24.2.0'}
     hasBin: true
     peerDependencies:
@@ -3023,9 +3023,6 @@ packages:
   ts-morph@28.0.0:
     resolution: {integrity: sha512-Wp3tnZ2bzwxyTZMtgWVzXDfm7lB1Drz+y9DmmYH/L702PQhPyVrp3pkou3yIz4qjS14GY9kcpmLiOOMvl8oG1g==}
 
-  tslib@2.8.1:
-    resolution: {integrity: sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==}
-
   tslib@2.9.1:
     resolution: {integrity: sha512-a4Ux9VKuIMHsOS7ENbEq6hK2ZGYIT27Rtl0E4eD9KqwxhKiQeMZE/9xb3IdYwWaSOyIBQLExhQgXDTYoiCxnWA==}
 
@@ -3879,7 +3876,7 @@ snapshots:
 
   '@conventional-changelog/template@1.4.0': {}
 
-  '@elia97/officina@0.17.0(@biomejs/biome@2.6.4)(@types/node@26.6.6)(sharp@0.35.5(@types/node@26.6.6))':
+  '@elia97/officina@0.19.0(@biomejs/biome@2.6.4)(@types/node@26.6.6)(sharp@0.35.5(@types/node@26.6.6))':
     dependencies:
       '@biomejs/biome': 2.6.4
       plop: 4.0.5(@types/node@26.6.6)
@@ -6023,7 +6020,7 @@ snapshots:
 
   rxjs@7.8.2:
     dependencies:
-      tslib: 2.8.1
+      tslib: 2.9.1
 
   safe-buffer@5.2.1: {}
 
@@ -6226,8 +6223,6 @@ snapshots:
     dependencies:
       '@ts-morph/common': 0.29.0
       code-block-writer: 13.0.3
-
-  tslib@2.8.1: {}
 
   tslib@2.9.1: {}
 
